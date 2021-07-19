@@ -18,6 +18,16 @@
       sosd::Benchmark<type_name, BranchlessBinarySearch>&, bool); \
   template void func_name<InterpolationSearch>(                   \
       sosd::Benchmark<type_name, InterpolationSearch>&, bool)
+
+#define INSTANTIATE_TEMPLATES_INSERT(func_name, type_name)                        \
+  template void func_name<LinearSearch>(                                          \
+      sosd::Benchmark<type_name, LinearSearch>&, sosd::Experiment exp);           \
+  template void func_name<BranchingBinarySearch>(                                 \
+      sosd::Benchmark<type_name, BranchingBinarySearch>&, sosd::Experiment exp);  \
+  template void func_name<BranchlessBinarySearch>(                                \
+      sosd::Benchmark<type_name, BranchlessBinarySearch>&, sosd::Experiment exp); \
+  template void func_name<InterpolationSearch>(                                   \
+      sosd::Benchmark<type_name, InterpolationSearch>&, sosd::Experiment exp)
 #endif
 
 #ifdef FAST_MODE

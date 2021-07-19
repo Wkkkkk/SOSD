@@ -47,6 +47,20 @@ void benchmark_64_alex(sosd::Benchmark<uint64_t, Searcher>& benchmark,
     }
   }
 }
+template <template <typename> typename Searcher>
+void benchmark_32_alex_insert(sosd::Benchmark<uint32_t, Searcher>& benchmark,
+                              sosd::Experiment exp) {
+  benchmark.template InsertTest<Alex<uint32_t, 1>>(exp);
+}
+
+template <template <typename> typename Searcher>
+void benchmark_64_alex_insert(sosd::Benchmark<uint64_t, Searcher>& benchmark,
+                              sosd::Experiment exp) {
+  benchmark.template InsertTest<Alex<uint64_t, 1>>(exp);
+}
 
 INSTANTIATE_TEMPLATES(benchmark_32_alex, uint32_t);
 INSTANTIATE_TEMPLATES(benchmark_64_alex, uint64_t);
+
+INSTANTIATE_TEMPLATES_INSERT(benchmark_32_alex_insert, uint32_t);
+INSTANTIATE_TEMPLATES_INSERT(benchmark_64_alex_insert, uint64_t);

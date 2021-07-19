@@ -6,7 +6,7 @@
 #include "base.h"
 
 template <class KeyType, int size_scale>
-class STXBTree : public Competitor {
+class STXBTree : public UpdatableCompetitor {
  public:
   STXBTree()
       : btree_(TrackingAllocator<std::pair<KeyType, uint64_t>>(
@@ -50,11 +50,18 @@ class STXBTree : public Competitor {
     return (SearchBound){start, stop};
   }
 
+  void insert(const KeyType& key, const uint64_t& value) {
+    btree_.insert(key, value);
+    data_size_ += 1;
+  }
+
   std::string name() const { return "BTree"; }
 
   std::size_t size() const {
     return btree_.get_allocator().total_allocation_size + sizeof(*this);
   }
+
+  std::size_t data_size() const { return data_size_; }
 
   int variant() const { return size_scale; }
 

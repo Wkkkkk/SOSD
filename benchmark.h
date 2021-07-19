@@ -29,6 +29,22 @@ static constexpr std::size_t batch_size = 1u << 16;
 
 namespace sosd {
 
+struct Experiment {
+  size_t window_size;
+  uint64_t iterations;
+  uint64_t ooo_distance;
+  bool latency;
+  std::vector<uint64_t>& latencies;
+
+  Experiment(size_t w, uint64_t i, bool l, std::vector<uint64_t>& ls):
+      window_size(w), iterations(i), ooo_distance(0), latency(l), latencies(ls)
+  {}
+
+  Experiment(size_t w, uint64_t i, uint64_t d, bool l, std::vector<uint64_t>& ls):
+      window_size(w), iterations(i), ooo_distance(d), latency(l), latencies(ls)
+  {}
+};
+
 // KeyType: Controls the type of the key (the value will always be uint64_t)
 //          Use uint64_t for 64 bit types and uint32_t for 32 bit types
 //          KeyType must implement operator<
@@ -146,6 +162,34 @@ class Benchmark {
     }
 
     first_run_ = false;
+  }
+
+  template <class Index>
+  void InsertTest(Experiment exp) {
+    Index index;
+
+    int i = 0;
+    for (i = exp.iterations - exp.ooo_distance; i < exp.iterations; ++i) {
+      index.insert(i, 1 + (i % 101));
+    }
+    for (i = 0; i < exp.window_size - exp.ooo_distance; ++i) {
+      index.insert(i, 1 + (i % 101));
+    }
+
+    if (index.data_size() != exp.window_size) {
+      std::cerr << "window is not exactly full; should be " << exp.window_size << ", but is " << index.data_size() << std::endl;
+      exit(2);
+    }
+
+    uint64_t ms = util::timing([&] {
+      for (i = exp.window_size - exp.ooo_distance; i < exp.iterations - exp.ooo_distance; ++i) {
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+
+        index.insert(i, 1 + (i % 101));
+      }
+    });
+
+    exp.latencies.push_back(ms);
   }
 
   bool uses_binary_search() const {

@@ -31,14 +31,14 @@ using namespace std;
   if ((!only_mode) || only == tag) { \
     code;                            \
   }
-#define add_search_type(name, func, type, search_class)                   \
+#define add_search_type(name, func, type, search_class)      \
   {                                                                       \
     if (search_type == (name)) {                                          \
       auto search = search_class<type>();                                 \
       sosd::Benchmark<type, search_class> benchmark(                      \
           filename, lookups, num_repeats, perf, build, fence, cold_cache, \
           track_errors, csv, num_threads, search);                        \
-      func(benchmark, pareto, only_mode, only, filename);                 \
+      func(benchmark, pareto, only_mode, only, filename, insert_mode);    \
       found_search_type = true;                                           \
       break;                                                              \
     }                                                                     \
@@ -46,7 +46,29 @@ using namespace std;
 
 template <class Benchmark>
 void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
-                    std::string only, std::string filename) {
+                    std::string only, std::string filename, bool insert_mode = false) {
+  if (insert_mode) {
+    int window_size = 100;
+    bool latency = true;
+    std::vector<uint64_t> latencies;
+    sosd::Experiment exp(window_size, 100000, 5, latency, latencies);
+
+    std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
+              << ", ooo_distance " << exp.ooo_distance << std::endl;
+
+    check_only("ALEX", benchmark_32_alex_insert(benchmark, exp));
+    check_only("BTree", benchmark_32_btree_insert(benchmark, exp));
+
+    if (exp.latency) {
+      std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
+      for (auto e: exp.latencies) {
+        std::cout  << " " << e;
+      }
+      std::cout  << std::endl;
+    }
+    return;
+  }
+
   // Build and probe individual indexes.
   check_only("RMI", benchmark_32_rmi(benchmark, pareto, filename));
   check_only("RS", benchmark_32_rs(benchmark, pareto));
@@ -74,7 +96,29 @@ void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
 
 template <class Benchmark>
 void execute_64_bit(Benchmark benchmark, bool pareto, bool only_mode,
-                    std::string only, std::string filename) {
+                    std::string only, std::string filename, bool insert_mode = false) {
+  if (insert_mode) {
+    int window_size = 100;
+    bool latency = true;
+    std::vector<uint64_t> latencies;
+    sosd::Experiment exp(window_size, 100000, 5, latency, latencies);
+
+    std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
+              << ", ooo_distance " << exp.ooo_distance << std::endl;
+
+    check_only("ALEX", benchmark_64_alex_insert(benchmark, exp));
+    check_only("BTree", benchmark_64_btree_insert(benchmark, exp));
+
+    if (exp.latency) {
+      std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
+      for (auto e: exp.latencies) {
+        std::cout  << " " << e;
+      }
+      std::cout  << std::endl;
+    }
+    return;
+  }
+
   // Build and probe individual indexes.
   check_only("RMI", benchmark_64_rmi(benchmark, pareto, filename));
   check_only("RS", benchmark_64_rs(benchmark, pareto));
@@ -112,6 +156,7 @@ int main(int argc, char* argv[]) {
       cxxopts::value<int>()->default_value("1"))("p,perf",
                                                  "Track performance counters")(
       "b,build", "Only measure and report build times")(
+      "insert", "Do the insert test", cxxopts::value<std::string>()->default_value(""))(
       "only", "Only run the specified index",
       cxxopts::value<std::string>()->default_value(""))(
       "cold-cache", "Clear the CPU cache between each lookup")(
@@ -153,6 +198,7 @@ int main(int argc, char* argv[]) {
   const std::string lookups = result["lookups"].as<std::string>();
   const std::string search_type = result["search"].as<std::string>();
   const bool only_mode = result.count("only") || std::getenv("SOSD_ONLY");
+  const bool insert_mode = result.count("insert") || std::getenv("INSERT_ONLY");
   std::string only;
 
   if (result.count("only")) {

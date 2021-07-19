@@ -10,3 +10,10 @@ class Competitor {
 
   int variant() const { return 0; }
 };
+
+class UpdatableCompetitor : public Competitor {
+ public:
+  bool updatable() {
+    return true;
+  }
+};

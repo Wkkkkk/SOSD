@@ -7,7 +7,7 @@
 #include "base.h"
 
 template <class KeyType, int size_scale>
-class Alex : public Competitor {
+class Alex : public UpdatableCompetitor {
  public:
   uint64_t Build(const std::vector<KeyValue<KeyType>>& data) {
     std::vector<std::pair<KeyType, uint64_t>> loading_data;
@@ -46,9 +46,21 @@ class Alex : public Competitor {
     return (SearchBound){start, stop};
   }
 
+  // This will NOT do an update of an existing key.
+  // To perform an update or read-modify-write, do a lookup and modify the
+  // payload's value.
+  void insert(const KeyType& key, const uint64_t& value) {
+    auto [_, succeed] = map_.insert(key, value);
+    if (succeed) {
+      data_size_ += 1;
+    }
+  }
+
   std::string name() const { return "ALEX"; }
 
   std::size_t size() const { return map_.model_size() + map_.data_size(); }
+
+  std::size_t data_size() const { return data_size_; }
 
   int variant() const { return size_scale; }
 
