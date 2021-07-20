@@ -165,7 +165,7 @@ class Benchmark {
   }
 
   template <class Index>
-  void InsertTest(Experiment exp) {
+  void UpdatingTest(Experiment exp) {
     Index index;
 
     int i = 0;
@@ -185,6 +185,7 @@ class Benchmark {
       for (i = exp.window_size - exp.ooo_distance; i < exp.iterations - exp.ooo_distance; ++i) {
         std::atomic_thread_fence(std::memory_order_seq_cst);
 
+        index.evict();
         index.insert(i, 1 + (i % 101));
       }
     });

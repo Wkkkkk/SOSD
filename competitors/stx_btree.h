@@ -55,6 +55,11 @@ class STXBTree : public UpdatableCompetitor {
     data_size_ += 1;
   }
 
+  void evict() {
+    btree_.erase(btree_.begin());
+    if (data_size_ > 0) { data_size_ -= 1; }
+  }
+
   std::string name() const { return "BTree"; }
 
   std::size_t size() const {

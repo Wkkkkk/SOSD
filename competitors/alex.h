@@ -56,6 +56,11 @@ class Alex : public UpdatableCompetitor {
     }
   }
 
+  void evict() {
+    map_.erase(map_.begin());
+    if (data_size_ > 0) { data_size_ -= 1; }
+  }
+
   std::string name() const { return "ALEX"; }
 
   std::size_t size() const { return map_.model_size() + map_.data_size(); }

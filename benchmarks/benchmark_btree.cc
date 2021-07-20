@@ -50,13 +50,13 @@ void benchmark_64_btree(sosd::Benchmark<uint64_t, Searcher>& benchmark,
 template <template <typename> typename Searcher>
 void benchmark_32_btree_insert(sosd::Benchmark<uint32_t, Searcher>& benchmark,
                                sosd::Experiment exp) {
-  benchmark.template InsertTest<STXBTree<uint32_t, 32>>(exp);
+  benchmark.template UpdatingTest<STXBTree<uint32_t, 32>>(exp);
 }
 
 template <template <typename> typename Searcher>
 void benchmark_64_btree_insert(sosd::Benchmark<uint64_t, Searcher>& benchmark,
                                sosd::Experiment exp) {
-  benchmark.template InsertTest<STXBTree<uint64_t, 32>>(exp);
+  benchmark.template UpdatingTest<STXBTree<uint64_t, 32>>(exp);
 }
 
 INSTANTIATE_TEMPLATES(benchmark_32_btree, uint32_t);
