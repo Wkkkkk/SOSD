@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 
+#include "benchmarks/benchmark_fiba.h"
 #include "benchmarks/benchmark_alex.h"
 #include "benchmarks/benchmark_art.h"
 #include "benchmarks/benchmark_btree.h"
@@ -58,6 +59,7 @@ void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
 
     check_only("ALEX", benchmark_32_alex_insert(benchmark, exp));
     check_only("BTree", benchmark_32_btree_insert(benchmark, exp));
+    check_only("FIBA", benchmark_32_fiba_query(benchmark, exp));
 
     if (exp.latency) {
       std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
@@ -108,6 +110,7 @@ void execute_64_bit(Benchmark benchmark, bool pareto, bool only_mode,
 
     check_only("ALEX", benchmark_64_alex_insert(benchmark, exp));
     check_only("BTree", benchmark_64_btree_insert(benchmark, exp));
+    check_only("FIBA", benchmark_64_fiba_query(benchmark, exp));
 
     if (exp.latency) {
       std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
@@ -156,7 +159,7 @@ int main(int argc, char* argv[]) {
       cxxopts::value<int>()->default_value("1"))("p,perf",
                                                  "Track performance counters")(
       "b,build", "Only measure and report build times")(
-      "insert", "Do the insert test", cxxopts::value<std::string>()->default_value(""))(
+      "i,insert", "Do the insert test", cxxopts::value<std::string>()->default_value(""))(
       "only", "Only run the specified index",
       cxxopts::value<std::string>()->default_value(""))(
       "cold-cache", "Clear the CPU cache between each lookup")(
@@ -218,6 +221,9 @@ int main(int argc, char* argv[]) {
 
   if (only_mode)
     cout << "Only executing indexes matching " << only << std::endl;
+
+  if (insert_mode)
+    cout << "Only do update tests" << std::endl;
 
   // Pin main thread to core 0.
   util::set_cpu_affinity(0);

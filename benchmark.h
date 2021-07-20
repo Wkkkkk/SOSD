@@ -36,6 +36,13 @@ struct Experiment {
   bool latency;
   std::vector<uint64_t>& latencies;
 
+  // test for window sharing
+  size_t window_size_big;
+  bool twin;
+
+  // test for real data
+  std::chrono::milliseconds window_duration;
+
   Experiment(size_t w, uint64_t i, bool l, std::vector<uint64_t>& ls):
       window_size(w), iterations(i), ooo_distance(0), latency(l), latencies(ls)
   {}
@@ -190,7 +197,34 @@ class Benchmark {
       }
     });
 
-    exp.latencies.push_back(ms);
+    exp.latencies.push_back(ms/(exp.iterations - exp.window_size));
+  }
+
+  template <class Index>
+  void QueryTest(Index index, Experiment exp) {
+    int i = 0;
+    for (i = exp.iterations - exp.ooo_distance; i < exp.iterations; ++i) {
+      index.insert(i, 1 + (i % 101));
+    }
+    for (i = 0; i < exp.window_size - exp.ooo_distance; ++i) {
+      index.insert(i, 1 + (i % 101));
+    }
+
+    if (index.data_size() != exp.window_size) {
+      std::cerr << "window is not exactly full; should be " << exp.window_size << ", but is " << index.data_size() << std::endl;
+      exit(2);
+    }
+
+    uint64_t ms = util::timing([&] {
+      for (i = exp.window_size - exp.ooo_distance; i < exp.iterations - exp.ooo_distance; ++i) {
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+
+        index.evict();
+        index.insert(i, 1 + (i % 101));
+      }
+    });
+
+    exp.latencies.push_back(ms/(exp.iterations - exp.window_size));
   }
 
   bool uses_binary_search() const {
