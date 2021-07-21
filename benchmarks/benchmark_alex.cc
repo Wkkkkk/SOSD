@@ -3,12 +3,11 @@
 #include "benchmark.h"
 #include "common.h"
 #include "competitors/alex.h"
-#include "competitors/AggregationFunctions.hpp"
 
 template <template <typename> typename Searcher>
 void benchmark_32_alex(sosd::Benchmark<uint32_t, Searcher>& benchmark,
                        bool pareto) {
-  Sum<uint64_t, uint64_t, uint64_t> func;
+  Sum<uint64_t> func;
   benchmark.template Run(Alex<uint32_t, 1, typeof(func)>(func));
   if (pareto) {
     benchmark.template Run(Alex<uint32_t, 2, typeof(func)>(func));
@@ -32,7 +31,7 @@ void benchmark_32_alex(sosd::Benchmark<uint32_t, Searcher>& benchmark,
 template <template <typename> typename Searcher>
 void benchmark_64_alex(sosd::Benchmark<uint64_t, Searcher>& benchmark,
                        bool pareto) {
-  Sum<uint64_t, uint64_t, uint64_t> func;
+  Sum<uint64_t> func;
   benchmark.template Run(Alex<uint64_t, 1, typeof(func)>(func));
   if (pareto) {
     benchmark.template Run(Alex<uint64_t, 2, typeof(func)>(func));
@@ -53,21 +52,23 @@ void benchmark_64_alex(sosd::Benchmark<uint64_t, Searcher>& benchmark,
   }
 }
 template <template <typename> typename Searcher>
-void benchmark_32_alex_insert(sosd::Benchmark<uint32_t, Searcher>& benchmark,
+void benchmark_32_alex_aggregate(sosd::Benchmark<uint32_t, Searcher>& benchmark,
                               sosd::Experiment exp) {
-  Sum<uint64_t, uint64_t, uint64_t> func;
-  benchmark.template UpdatingTest(Alex<uint32_t, 1, typeof(func)>(func), exp);
+  visit([&](auto&& f) {
+    benchmark.template QueryTest(Alex<uint32_t, 1, typeof(f)>(f), exp);
+  }, exp.func);
 }
 
 template <template <typename> typename Searcher>
-void benchmark_64_alex_insert(sosd::Benchmark<uint64_t, Searcher>& benchmark,
+void benchmark_64_alex_aggregate(sosd::Benchmark<uint64_t, Searcher>& benchmark,
                               sosd::Experiment exp) {
-  Sum<uint64_t, uint64_t, uint64_t> func;
-  benchmark.template UpdatingTest(Alex<uint64_t, 1, typeof(func)>(func), exp);
+  visit([&](auto&& f) {
+    benchmark.template QueryTest(Alex<uint64_t, 1, typeof(f)>(f), exp);
+  }, exp.func);
 }
 
 INSTANTIATE_TEMPLATES(benchmark_32_alex, uint32_t);
 INSTANTIATE_TEMPLATES(benchmark_64_alex, uint64_t);
 
-INSTANTIATE_TEMPLATES_INSERT(benchmark_32_alex_insert, uint32_t);
-INSTANTIATE_TEMPLATES_INSERT(benchmark_64_alex_insert, uint64_t);
+INSTANTIATE_TEMPLATES_INSERT(benchmark_32_alex_aggregate, uint32_t);
+INSTANTIATE_TEMPLATES_INSERT(benchmark_64_alex_aggregate, uint64_t);

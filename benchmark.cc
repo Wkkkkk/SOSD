@@ -39,7 +39,7 @@ using namespace std;
       sosd::Benchmark<type, search_class> benchmark(                      \
           filename, lookups, num_repeats, perf, build, fence, cold_cache, \
           track_errors, csv, num_threads, search);                        \
-      func(benchmark, pareto, only_mode, only, filename, insert_mode);    \
+      func(benchmark, pareto, only_mode, only, filename, exp);    \
       found_search_type = true;                                           \
       break;                                                              \
     }                                                                     \
@@ -47,27 +47,11 @@ using namespace std;
 
 template <class Benchmark>
 void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
-                    std::string only, std::string filename, bool insert_mode = false) {
-  if (insert_mode) {
-    int window_size = 100;
-    bool latency = true;
-    std::vector<uint64_t> latencies;
-    sosd::Experiment exp(window_size, 100000, 5, latency, latencies);
-
-    std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
-              << ", ooo_distance " << exp.ooo_distance << std::endl;
-
-    check_only("ALEX", benchmark_32_alex_insert(benchmark, exp));
-    check_only("BTree", benchmark_32_btree_insert(benchmark, exp));
-    check_only("FIBA", benchmark_32_fiba_query(benchmark, exp));
-
-    if (exp.latency) {
-      std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
-      for (auto e: exp.latencies) {
-        std::cout  << " " << e;
-      }
-      std::cout  << std::endl;
-    }
+                    std::string only, std::string filename, sosd::Experiment exp) {
+  if (exp.query_mode) {
+    check_only("ALEX", benchmark_32_alex_aggregate(benchmark, exp));
+    check_only("BTree", benchmark_32_btree_aggregate(benchmark, exp));
+    check_only("FIBA", benchmark_32_fiba_aggregate(benchmark, exp));
     return;
   }
 
@@ -98,27 +82,11 @@ void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
 
 template <class Benchmark>
 void execute_64_bit(Benchmark benchmark, bool pareto, bool only_mode,
-                    std::string only, std::string filename, bool insert_mode = false) {
-  if (insert_mode) {
-    int window_size = 100;
-    bool latency = true;
-    std::vector<uint64_t> latencies;
-    sosd::Experiment exp(window_size, 100000, 5, latency, latencies);
-
-    std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
-              << ", ooo_distance " << exp.ooo_distance << std::endl;
-
-    check_only("ALEX", benchmark_64_alex_insert(benchmark, exp));
-    check_only("BTree", benchmark_64_btree_insert(benchmark, exp));
-    check_only("FIBA", benchmark_64_fiba_query(benchmark, exp));
-
-    if (exp.latency) {
-      std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
-      for (auto e: exp.latencies) {
-        std::cout  << " " << e;
-      }
-      std::cout  << std::endl;
-    }
+                    std::string only, std::string filename, sosd::Experiment exp) {
+  if (exp.query_mode) {
+    check_only("ALEX", benchmark_64_alex_aggregate(benchmark, exp));
+    check_only("BTree", benchmark_64_btree_aggregate(benchmark, exp));
+    check_only("FIBA", benchmark_64_fiba_aggregate(benchmark, exp));
     return;
   }
 
@@ -159,7 +127,7 @@ int main(int argc, char* argv[]) {
       cxxopts::value<int>()->default_value("1"))("p,perf",
                                                  "Track performance counters")(
       "b,build", "Only measure and report build times")(
-      "i,insert", "Do the insert test", cxxopts::value<std::string>()->default_value(""))(
+      "q, query", "Do the window aggregation query test", cxxopts::value<std::string>()->default_value("1"))(
       "only", "Only run the specified index",
       cxxopts::value<std::string>()->default_value(""))(
       "cold-cache", "Clear the CPU cache between each lookup")(
@@ -173,7 +141,15 @@ int main(int argc, char* argv[]) {
       "interpolation",
       cxxopts::value<std::string>()->default_value("binary"))(
       "positional", "extra positional arguments",
-      cxxopts::value<std::vector<std::string>>());
+      cxxopts::value<std::vector<std::string>>())(
+      "af", "choose aggregation function from: sum, max",
+      cxxopts::value<std::string>()->default_value("sum"))(
+      "ws", "window size",
+      cxxopts::value<size_t>()->default_value("100"))(
+      "it", "how many iterations",
+      cxxopts::value<size_t>()->default_value("1000000"))(
+      "di", "how much disorder",
+      cxxopts::value<size_t>()->default_value("5"));
 
   options.parse_positional({"data", "lookups", "positional"});
 
@@ -201,8 +177,23 @@ int main(int argc, char* argv[]) {
   const std::string lookups = result["lookups"].as<std::string>();
   const std::string search_type = result["search"].as<std::string>();
   const bool only_mode = result.count("only") || std::getenv("SOSD_ONLY");
-  const bool insert_mode = result.count("insert") || std::getenv("INSERT_ONLY");
+  const bool query_mode = result.count("query") || std::getenv("QUERY");
+  const std::string aggregation_function = result["af"].as<std::string>();
+  const std::size_t window_size = result["ws"].as<size_t>();
+  const size_t iterations = result["it"].as<size_t>();
+  const size_t disorder = result["di"].as<size_t>();
   std::string only;
+
+  bool latency = true;
+  std::vector<uint64_t> latencies;
+  sosd::Experiment exp(window_size, iterations, disorder, latency, latencies);
+  if (aggregation_function == "sum")
+    exp.func = Sum<uint64_t>();
+  else if (aggregation_function == "max")
+    exp.func = Max<uint64_t>();
+  std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
+            << ", ooo_distance " << exp.ooo_distance
+            << ", aggregation function " << aggregation_function << std::endl;
 
   if (result.count("only")) {
     only = result["only"].as<std::string>();
@@ -222,8 +213,8 @@ int main(int argc, char* argv[]) {
   if (only_mode)
     cout << "Only executing indexes matching " << only << std::endl;
 
-  if (insert_mode)
-    cout << "Only do update tests" << std::endl;
+  if (query_mode)
+    cout << "Only do query tests" << std::endl;
 
   // Pin main thread to core 0.
   util::set_cpu_affinity(0);
@@ -268,6 +259,14 @@ int main(int argc, char* argv[]) {
     std::cerr << "Specified search type is not implemented in this build. "
                  "Disable fast mode for other search types."
               << std::endl;
+  }
+
+  if (exp.latency) {
+    std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
+    for (auto e: exp.latencies) {
+      std::cout  << " " << e;
+    }
+    std::cout  << std::endl;
   }
 
   return 0;

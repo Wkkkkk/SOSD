@@ -9,11 +9,13 @@
 #include <iostream>
 #include <sstream>
 #include <list>
+#include <variant>
 
 #include "config.h"
 #include "searches/branching_binary_search.h"
 #include "util.h"
 #include "utils/perf_event.h"
+#include "competitors/AggregationFunctions.hpp"
 
 #ifdef __linux__
 #define checkLinux(x) (x)
@@ -47,15 +49,18 @@ inline void silly_combine(std::chrono::system_clock::time_point& a, const std::c
 }
 
 struct Experiment {
-  // test for read
-  bool pareto;
+  bool query_mode;
 
-  // test for updates
+  // test for aggregation
   size_t window_size;
   uint64_t iterations;
   uint64_t ooo_distance;
   bool latency;
   std::vector<uint64_t>& latencies;
+
+  // aggregate function
+  std::variant<Sum<uint64_t>,
+      Max<uint64_t>> func;
 
   // test for window sharing
   size_t window_size_big;
@@ -296,7 +301,7 @@ class Benchmark {
     });
 
     exp.latencies.push_back(ms/(exp.iterations - exp.window_size));
-    std::cout << index.name() << "force_side_effect: " << force_side_effect << std::endl;
+    std::cerr << index.name() << "force_side_effect: " << force_side_effect << std::endl;
   }
 
   bool uses_binary_search() const {
