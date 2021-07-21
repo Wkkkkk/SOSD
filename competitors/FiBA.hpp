@@ -999,6 +999,8 @@ public:
     }
   }
 
+  std::string name() { return "FiBA"; }
+
   size_t size() { return _size; }
 
   size_t data_size() { return _size; }

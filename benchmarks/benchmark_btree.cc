@@ -3,24 +3,26 @@
 #include "benchmark.h"
 #include "common.h"
 #include "competitors/stx_btree.h"
+#include "competitors/AggregationFunctions.hpp"
 
 template <template <typename> typename Searcher>
 void benchmark_32_btree(sosd::Benchmark<uint32_t, Searcher>& benchmark,
                         bool pareto) {
-  benchmark.template Run<STXBTree<uint32_t, 32>>();
+  Sum<uint64_t, uint64_t, uint64_t> func;
+  benchmark.template Run(STXBTree<uint32_t, 32, typeof(func)>(func));
   if (pareto) {
-    benchmark.template Run<STXBTree<uint32_t, 1>>();
-    benchmark.template Run<STXBTree<uint32_t, 4>>();
-    benchmark.template Run<STXBTree<uint32_t, 16>>();
-    benchmark.template Run<STXBTree<uint32_t, 64>>();
-    benchmark.template Run<STXBTree<uint32_t, 128>>();
-    benchmark.template Run<STXBTree<uint32_t, 512>>();
-    benchmark.template Run<STXBTree<uint32_t, 1024>>();
+    benchmark.template Run(STXBTree<uint32_t, 1, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint32_t, 4, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint32_t, 16, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint32_t, 64, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint32_t, 128, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint32_t, 512, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint32_t, 1024, typeof(func)>(func));
     if (benchmark.uses_binary_search()) {
-      benchmark.template Run<STXBTree<uint32_t, 4096>>();
-      benchmark.template Run<STXBTree<uint32_t, 16384>>();
-      benchmark.template Run<STXBTree<uint32_t, 65536>>();
-      benchmark.template Run<STXBTree<uint32_t, 262144>>();
+      benchmark.template Run(STXBTree<uint32_t, 4096, typeof(func)>(func));
+      benchmark.template Run(STXBTree<uint32_t, 16384, typeof(func)>(func));
+      benchmark.template Run(STXBTree<uint32_t, 65536, typeof(func)>(func));
+      benchmark.template Run(STXBTree<uint32_t, 262144, typeof(func)>(func));
     }
   }
 }
@@ -29,20 +31,21 @@ template <template <typename> typename Searcher>
 void benchmark_64_btree(sosd::Benchmark<uint64_t, Searcher>& benchmark,
                         bool pareto) {
   // tuned for Pareto efficiency
-  benchmark.template Run<STXBTree<uint64_t, 32>>();
+  Sum<uint64_t, uint64_t, uint64_t> func;
+  benchmark.template Run(STXBTree<uint64_t, 32, typeof(func)>(func));
   if (pareto) {
-    benchmark.template Run<STXBTree<uint64_t, 1>>();
-    benchmark.template Run<STXBTree<uint64_t, 4>>();
-    benchmark.template Run<STXBTree<uint64_t, 16>>();
-    benchmark.template Run<STXBTree<uint64_t, 64>>();
-    benchmark.template Run<STXBTree<uint64_t, 128>>();
-    benchmark.template Run<STXBTree<uint64_t, 512>>();
-    benchmark.template Run<STXBTree<uint64_t, 1024>>();
+    benchmark.template Run(STXBTree<uint64_t, 1, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint64_t, 4, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint64_t, 16, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint64_t, 64, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint64_t, 128, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint64_t, 512, typeof(func)>(func));
+    benchmark.template Run(STXBTree<uint64_t, 1024, typeof(func)>(func));
     if (benchmark.uses_binary_search()) {
-      benchmark.template Run<STXBTree<uint64_t, 4096>>();
-      benchmark.template Run<STXBTree<uint64_t, 16384>>();
-      benchmark.template Run<STXBTree<uint64_t, 65536>>();
-      benchmark.template Run<STXBTree<uint64_t, 262144>>();
+      benchmark.template Run(STXBTree<uint64_t, 4096, typeof(func)>(func));
+      benchmark.template Run(STXBTree<uint64_t, 16384, typeof(func)>(func));
+      benchmark.template Run(STXBTree<uint64_t, 65536, typeof(func)>(func));
+      benchmark.template Run(STXBTree<uint64_t, 262144, typeof(func)>(func));
     }
   }
 }
@@ -50,13 +53,15 @@ void benchmark_64_btree(sosd::Benchmark<uint64_t, Searcher>& benchmark,
 template <template <typename> typename Searcher>
 void benchmark_32_btree_insert(sosd::Benchmark<uint32_t, Searcher>& benchmark,
                                sosd::Experiment exp) {
-  benchmark.template UpdatingTest<STXBTree<uint32_t, 32>>(exp);
+  Sum<uint64_t, uint64_t, uint64_t> func;
+  benchmark.template UpdatingTest(STXBTree<uint32_t, 32, typeof(func)>(func), exp);
 }
 
 template <template <typename> typename Searcher>
 void benchmark_64_btree_insert(sosd::Benchmark<uint64_t, Searcher>& benchmark,
                                sosd::Experiment exp) {
-  benchmark.template UpdatingTest<STXBTree<uint64_t, 32>>(exp);
+  Sum<uint64_t, uint64_t, uint64_t> func;
+  benchmark.template UpdatingTest(STXBTree<uint64_t, 32, typeof(func)>(func), exp);
 }
 
 INSTANTIATE_TEMPLATES(benchmark_32_btree, uint32_t);

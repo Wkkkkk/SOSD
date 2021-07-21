@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <list>
 
 #include "config.h"
 #include "searches/branching_binary_search.h"
@@ -29,7 +30,27 @@ static constexpr std::size_t batch_size = 1u << 16;
 
 namespace sosd {
 
+template <typename T>
+inline void silly_combine(T& a, const T& b) {
+  a += b;
+}
+
+template <typename T>
+inline void silly_combine(std::list<T>& a, const std::list<T>& b) {
+  a.front() += b.back();
+}
+
+template <>
+inline void silly_combine(std::chrono::system_clock::time_point& a, const std::chrono::system_clock::time_point& b) {
+  auto dur = a - b;
+  a += dur;
+}
+
 struct Experiment {
+  // test for read
+  bool pareto;
+
+  // test for updates
   size_t window_size;
   uint64_t iterations;
   uint64_t ooo_distance;
@@ -122,7 +143,6 @@ class Benchmark {
 
   template <class Index>
   void Run() {
-    // Build index.
     Index index;
 
     if (!index.applicable(unique_keys_, data_filename_)) {
@@ -172,8 +192,56 @@ class Benchmark {
   }
 
   template <class Index>
-  void UpdatingTest(Experiment exp) {
-    Index index;
+  void Run(Index index) {
+
+    if (!index.applicable(unique_keys_, data_filename_)) {
+      std::cout << "index " << index.name() << " is not applicable"
+                << std::endl;
+      return;
+    }
+
+    build_ns_ = index.Build(index_data_);
+
+    // Do equality lookups.
+    if constexpr (!sosd_config::fast_mode) {
+      if (track_errors_) {
+        return DoLookupsWithErrorTracking(index);
+      }
+      if (perf_) {
+        checkLinux(({
+          BenchmarkParameters params;
+          params.setParam("index", index.name());
+          params.setParam("variant", index.variant());
+          PerfEventBlock e(lookups_.size(), params, /*printHeader=*/first_run_);
+          DoEqualityLookups<Index, false, false, false>(index);
+        }));
+      } else if (cold_cache_) {
+        if (num_threads_ > 1)
+          util::fail("cold cache not supported with multiple threads");
+        DoEqualityLookups<Index, true, false, true>(index);
+        PrintResult(index);
+      } else if (fence_) {
+        DoEqualityLookups<Index, false, true, false>(index);
+        PrintResult(index);
+      } else {
+        DoEqualityLookups<Index, false, false, false>(index);
+        PrintResult(index);
+      }
+    } else {
+      if (perf_ || cold_cache_ || fence_) {
+        util::fail(
+            "Perf, cold cache, and fence mode require full builds. Disable "
+            "fast mode.");
+      }
+      DoEqualityLookups<Index, false, false, false>(index);
+      PrintResult(index);
+    }
+
+    first_run_ = false;
+  }
+
+  template <class Index>
+  void UpdatingTest(Index index, Experiment exp) {
 
     int i = 0;
     for (i = exp.iterations - exp.ooo_distance; i < exp.iterations; ++i) {
@@ -202,6 +270,8 @@ class Benchmark {
 
   template <class Index>
   void QueryTest(Index index, Experiment exp) {
+    typename Index::outT force_side_effect = typename Index::outT();
+
     int i = 0;
     for (i = exp.iterations - exp.ooo_distance; i < exp.iterations; ++i) {
       index.insert(i, 1 + (i % 101));
@@ -221,10 +291,12 @@ class Benchmark {
 
         index.evict();
         index.insert(i, 1 + (i % 101));
+        silly_combine(force_side_effect, index.query());
       }
     });
 
     exp.latencies.push_back(ms/(exp.iterations - exp.window_size));
+    std::cout << index.name() << "force_side_effect: " << force_side_effect << std::endl;
   }
 
   bool uses_binary_search() const {

@@ -5,12 +5,17 @@
 #include "../utils/tracking_allocator.h"
 #include "base.h"
 
-template <class KeyType, int size_scale>
+template <class KeyType, int size_scale, typename BinOpFunc>
 class STXBTree : public UpdatableCompetitor {
  public:
-  STXBTree()
+  typedef typename BinOpFunc::In inT;
+  typedef typename BinOpFunc::Partial aggT;
+  typedef typename BinOpFunc::Out outT;
+
+  STXBTree(BinOpFunc func)
       : btree_(TrackingAllocator<std::pair<KeyType, uint64_t>>(
-            total_allocation_size)) {}
+            total_allocation_size))
+      , func_(func) {}
 
   uint64_t Build(const std::vector<KeyValue<KeyType>>& data) {
     std::vector<std::pair<KeyType, uint64_t>> reformatted_data;
@@ -60,6 +65,15 @@ class STXBTree : public UpdatableCompetitor {
     if (data_size_ > 0) { data_size_ -= 1; }
   }
 
+  outT query() {
+    aggT result = BinOpFunc::identity;
+    for (auto const& [key, val] : btree_)
+    {
+      result = func_.combine(result, val);
+    }
+    return func_.lower(result);
+  }
+
   std::string name() const { return "BTree"; }
 
   std::size_t size() const {
@@ -78,4 +92,5 @@ class STXBTree : public UpdatableCompetitor {
                       stx::btree_default_map_traits<KeyType, uint64_t>,
                       TrackingAllocator<std::pair<KeyType, uint64_t>>>
       btree_;
+  BinOpFunc func_;
 };

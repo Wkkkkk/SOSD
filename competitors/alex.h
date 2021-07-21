@@ -6,9 +6,16 @@
 #include "./ALEX/src/core/alex_base.h"
 #include "base.h"
 
-template <class KeyType, int size_scale>
+template <class KeyType, int size_scale, typename BinOpFunc>
 class Alex : public UpdatableCompetitor {
  public:
+  typedef typename BinOpFunc::In inT;
+  typedef typename BinOpFunc::Partial aggT;
+  typedef typename BinOpFunc::Out outT;
+
+  explicit Alex(BinOpFunc func)
+    : func_(func) {}
+
   uint64_t Build(const std::vector<KeyValue<KeyType>>& data) {
     std::vector<std::pair<KeyType, uint64_t>> loading_data;
     loading_data.reserve(data.size());
@@ -61,6 +68,15 @@ class Alex : public UpdatableCompetitor {
     if (data_size_ > 0) { data_size_ -= 1; }
   }
 
+  outT query() {
+    aggT result = BinOpFunc::identity;
+    for (auto const& [key, val] : map_)
+    {
+      result = func_.combine(result, val);
+    }
+    return func_.lower(result);
+  }
+
   std::string name() const { return "ALEX"; }
 
   std::size_t size() const { return map_.model_size() + map_.data_size(); }
@@ -72,4 +88,5 @@ class Alex : public UpdatableCompetitor {
  private:
   uint64_t data_size_ = 0;
   alex::Alex<KeyType, uint64_t> map_;
+  BinOpFunc func_;
 };

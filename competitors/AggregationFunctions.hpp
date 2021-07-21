@@ -43,8 +43,8 @@ public:
 template <typename I, typename P, typename O>
 const typename Sum<I,P,O>::Partial Sum<I,P,O>::identity = P();
 
-template <>
-const typename Sum<int>::Partial Sum<int>::identity = 0;
+//template <>
+//const typename Sum<int>::Partial Sum<int>::identity = 0;
 
 template <class _In, class _Partial=_In, class _Out=_In>
 class Max {
@@ -78,10 +78,10 @@ public:
 };
 
 template <typename I, typename P, typename O>
-const typename Max<I,P,O>::Partial Max<I,P,O>::identity = P();
+const typename Max<I,P,O>::Partial Max<I,P,O>::identity = std::numeric_limits<P>::min();
 
-template <>
-const typename Max<int>::Partial Max<int>::identity = std::numeric_limits<int>::min();
+//template <>
+//const typename Max<int>::Partial Max<int>::identity = std::numeric_limits<int>::min();
 
 template <class _In>
 class Mean {
