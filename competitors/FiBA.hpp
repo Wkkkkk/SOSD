@@ -7,6 +7,7 @@
 #include <limits>
 
 #include "utils.h"
+#include "base.h"
 
 namespace btree {
 
@@ -28,7 +29,7 @@ enum Kind { classic, knuckle, finger };
 
 template<typename _timeT, int minArity, Kind kind, typename binOpFunc,
          bool early_stopping=false>
-class Aggregate {
+class Aggregate : public Competitor {
 public:
   typedef typename binOpFunc::In inT;
   typedef typename binOpFunc::Partial aggT;
@@ -999,11 +1000,11 @@ public:
     }
   }
 
-  std::string name() { return "FiBA"; }
+  std::string name() const { return "FiBA"; }
 
-  size_t size() { return _size; }
+  size_t size() const { return _size; }
 
-  size_t data_size() { return _size; }
+  size_t data_size() const { return _size; }
 
   timeT youngest() const {
     timeT time;

@@ -275,33 +275,35 @@ class Benchmark {
 
   template <class Index>
   void QueryTest(Index index, Experiment exp) {
-    typename Index::outT force_side_effect = typename Index::outT();
-
-    int i = 0;
-    for (i = exp.iterations - exp.ooo_distance; i < exp.iterations; ++i) {
-      index.insert(i, 1 + (i % 101));
+    if (!index.applicable(unique_keys_, data_filename_)) {
+      std::cout << "index " << index.name() << " is not applicable"
+                << std::endl;
+      return;
     }
-    for (i = 0; i < exp.window_size - exp.ooo_distance; ++i) {
-      index.insert(i, 1 + (i % 101));
+    lookups_.resize(exp.iterations);
+
+    if (perf_) {
+      checkLinux(({
+        BenchmarkParameters params;
+        params.setParam("index", index.name());
+        params.setParam("variant", index.variant());
+        PerfEventBlock e(exp.iterations, params, /*printHeader=*/first_run_);
+        DoQuery<Index, false, false>(index, exp);
+      }));
+    } else if (cold_cache_) {
+      if (num_threads_ > 1)
+        util::fail("cold cache not supported with multiple threads");
+      DoQuery<Index, false, true>(index, exp);
+      PrintResult(index);
+    } else if (fence_) {
+      DoQuery<Index, true, false>(index, exp);
+      PrintResult(index);
+    } else {
+      DoQuery<Index, false, false>(index, exp);
+      PrintResult(index);
     }
 
-    if (index.data_size() != exp.window_size) {
-      std::cerr << "window is not exactly full; should be " << exp.window_size << ", but is " << index.data_size() << std::endl;
-      exit(2);
-    }
-
-    uint64_t ms = util::timing([&] {
-      for (i = exp.window_size - exp.ooo_distance; i < exp.iterations - exp.ooo_distance; ++i) {
-        std::atomic_thread_fence(std::memory_order_seq_cst);
-
-        index.evict();
-        index.insert(i, 1 + (i % 101));
-        silly_combine(force_side_effect, index.query());
-      }
-    });
-
-    exp.latencies.push_back(ms/(exp.iterations - exp.window_size));
-    std::cerr << index.name() << "force_side_effect: " << force_side_effect << std::endl;
+    first_run_ = false;
   }
 
   bool uses_binary_search() const {
@@ -436,6 +438,75 @@ class Benchmark {
 
       if constexpr (fence) __sync_synchronize();
     }
+  }
+
+  template <class Index, bool fence, bool clear_cache>
+  void DoQuery(Index& index, Experiment exp) {
+    if (build_) return;
+
+    bool run_failed = false;
+    if (clear_cache) std::cout << "rsum was: " << random_sum_ << std::endl;
+
+    runs_.resize(num_repeats_);
+    for (unsigned int i = 0; i < num_repeats_; ++i) {
+      random_sum_ = 0;
+      individual_ns_sum_ = 0;
+
+      uint64_t ms = util::timing([&] {
+        DoQueryCoreLoop<Index, fence, clear_cache>(
+            index, exp, run_failed);
+      });
+
+      runs_[i] = ms;
+      if (run_failed) {
+        runs_ = std::vector<uint64_t>(num_repeats_, 0);
+        return;
+      }
+    }
+  }
+
+  template <class Index, bool fence, bool clear_cache>
+  void DoQueryCoreLoop(Index& index, Experiment exp, bool& run_failed) {
+    typename Index::outT force_side_effect = typename Index::outT();
+    while(index.data_size() != 0) { index.evict(); }
+
+    int i = 0;
+    for (i = exp.iterations - exp.ooo_distance; i < exp.iterations; ++i) {
+      index.insert(i, 1 + (i % 101));
+    }
+    for (i = 0; i < exp.window_size - exp.ooo_distance; ++i) {
+      index.insert(i, 1 + (i % 101));
+    }
+    if (index.data_size() != exp.window_size) {
+      std::cerr << "window is not exactly full; should be " << exp.window_size << ", but is " << index.data_size() << std::endl;
+      exit(2);
+    }
+
+    for (i = exp.window_size - exp.ooo_distance; i < exp.iterations - exp.ooo_distance; ++i) {
+      if constexpr (clear_cache) {
+        // Make sure that all cache lines from large buffer are loaded
+        for (uint64_t& iter : memory_) {
+          random_sum_ += iter;
+        }
+        _mm_mfence();
+      }
+
+      const auto start = std::chrono::high_resolution_clock::now();
+      index.evict();
+      index.insert(i, 1 + (i % 101));
+      silly_combine(force_side_effect, index.query());
+      const auto end = std::chrono::high_resolution_clock::now();
+
+      const auto timing =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+              .count();
+      individual_ns_sum_ += timing;
+
+      if constexpr (fence) __sync_synchronize();
+    }
+
+    exp.latencies.push_back(individual_ns_sum_/(exp.iterations - exp.window_size));
+    std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
   }
 
   template <class Index>
