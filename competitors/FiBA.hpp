@@ -29,7 +29,7 @@ enum Kind { classic, knuckle, finger };
 
 template<typename _timeT, int minArity, Kind kind, typename binOpFunc,
          bool early_stopping=false>
-class Aggregate : public Competitor {
+class Aggregate : public UpdatableCompetitor {
 public:
   typedef typename binOpFunc::In inT;
   typedef typename binOpFunc::Partial aggT;

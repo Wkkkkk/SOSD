@@ -77,6 +77,18 @@ class Alex : public UpdatableCompetitor {
     return func_.lower(result);
   }
 
+  KeyType oldest() const {
+    if(map_.empty()) return KeyType();
+
+    return map_.get_min_key();
+  }
+
+  KeyType youngest() const {
+    if(map_.empty()) return KeyType();
+
+    return map_.get_max_key();
+  }
+
   std::string name() const { return "ALEX"; }
 
   std::size_t size() const { return map_.model_size() + map_.data_size(); }

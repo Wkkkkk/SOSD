@@ -74,6 +74,18 @@ class STXBTree : public UpdatableCompetitor {
     return func_.lower(result);
   }
 
+  KeyType oldest() const {
+    if(btree_.empty()) return KeyType();
+
+    return btree_.begin()->first;
+  }
+
+  KeyType youngest() const {
+    if(btree_.empty()) return KeyType();
+
+    return btree_.end()->first;
+  }
+
   std::string name() const { return "BTree"; }
 
   std::size_t size() const {

@@ -67,7 +67,8 @@ struct Experiment {
   bool twin;
 
   // test for real data
-  std::chrono::milliseconds window_duration;
+  bool do_data_test = false;
+  uint64_t window_duration; // in nanoseconds (10-9s)
 
   Experiment(size_t w, uint64_t i, bool l, std::vector<uint64_t>& ls):
       window_size(w), iterations(i), ooo_distance(0), latency(l), latencies(ls)
@@ -280,7 +281,6 @@ class Benchmark {
                 << std::endl;
       return;
     }
-    lookups_.resize(exp.iterations);
 
     if (perf_) {
       checkLinux(({
@@ -447,14 +447,30 @@ class Benchmark {
     bool run_failed = false;
     if (clear_cache) std::cout << "rsum was: " << random_sum_ << std::endl;
 
+    // do test on synthetic data
+    if (!exp.do_data_test) lookups_.resize(exp.iterations);
+    else {
+      // do test on real-world unsorted data
+      if (!is_sorted(lookups_.begin(), lookups_.end())) {
+        std::sort(lookups_.begin(), lookups_.end(), [](const auto &a, const auto &b) {
+          return a.key < b.key;
+        });
+      }
+    }
+
     runs_.resize(num_repeats_);
     for (unsigned int i = 0; i < num_repeats_; ++i) {
       random_sum_ = 0;
       individual_ns_sum_ = 0;
 
       uint64_t ms = util::timing([&] {
-        DoQueryCoreLoop<Index, fence, clear_cache>(
-            index, exp, run_failed);
+        if(exp.do_data_test) {
+          DoDataDrivenQueryCoreLoop<Index, fence, clear_cache>(
+              index, exp, run_failed);
+        } else {
+          DoQueryCoreLoop<Index, fence, clear_cache>(
+              index, exp, run_failed);
+        }
       });
 
       runs_[i] = ms;
@@ -506,6 +522,36 @@ class Benchmark {
     }
 
     exp.latencies.push_back(individual_ns_sum_/(exp.iterations - exp.window_size));
+    std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
+  }
+
+  template <class Index, bool fence, bool clear_cache>
+  void DoDataDrivenQueryCoreLoop(Index& index, Experiment exp, bool& run_failed) {
+    typename Index::outT force_side_effect = typename Index::outT();
+    while(index.data_size() != 0) { index.evict(); }
+
+    for (int i = 0; i < lookups_.size() ; ++i) {
+      if constexpr (clear_cache) {
+        // Make sure that all cache lines from large buffer are loaded
+        for (uint64_t& iter : memory_) {
+          random_sum_ += iter;
+        }
+        _mm_mfence();
+      }
+
+      const int lookup_key = lookups_[i].key;
+      if (index.data_size() == 0 || exp.window_duration >= index.youngest() - lookup_key) {
+        index.insert(lookup_key,  1 + (lookup_key % 101));
+      }
+      const auto youngest = index.youngest();
+      while (exp.window_duration < (youngest - index.oldest())) {
+        index.evict();
+      }
+      silly_combine(force_side_effect, index.query());
+
+      if constexpr (fence) __sync_synchronize();
+    }
+
     std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
   }
 

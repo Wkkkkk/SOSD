@@ -149,7 +149,11 @@ int main(int argc, char* argv[]) {
       "it", "how many iterations",
       cxxopts::value<size_t>()->default_value("1000000"))(
       "di", "how much disorder",
-      cxxopts::value<size_t>()->default_value("5"));
+      cxxopts::value<size_t>()->default_value("5"))(
+      "dtest", "do data test",
+      cxxopts::value<string>()->default_value(""))(
+      "duration", "window duration for data-driven test, in nanoseconds(10-9s)",
+      cxxopts::value<size_t>()->default_value("10"));
 
   options.parse_positional({"data", "lookups", "positional"});
 
@@ -178,10 +182,12 @@ int main(int argc, char* argv[]) {
   const std::string search_type = result["search"].as<std::string>();
   const bool only_mode = result.count("only") || std::getenv("SOSD_ONLY");
   const bool query_mode = result.count("query") || std::getenv("QUERY");
+  const bool dtest_mode = result.count("dtest") || std::getenv("DTEST");
   const std::string aggregation_function = result["af"].as<std::string>();
   const std::size_t window_size = result["ws"].as<size_t>();
   const size_t iterations = result["it"].as<size_t>();
   const size_t disorder = result["di"].as<size_t>();
+  const size_t duration = result["duration"].as<size_t>();
   std::string only;
 
   bool latency = true;
@@ -191,6 +197,8 @@ int main(int argc, char* argv[]) {
     exp.func = Sum<uint64_t>();
   else if (aggregation_function == "max")
     exp.func = Max<uint64_t>();
+  exp.do_data_test = dtest_mode;
+  exp.window_duration = duration;
   std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
             << ", ooo_distance " << exp.ooo_distance
             << ", aggregation function " << aggregation_function << std::endl;
@@ -215,6 +223,9 @@ int main(int argc, char* argv[]) {
 
   if (query_mode)
     cout << "Only do query tests" << std::endl;
+
+  if (dtest_mode)
+    cout << "Only do data-driven tests" << std::endl;
 
   // Pin main thread to core 0.
   util::set_cpu_affinity(0);
