@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
 echo "Executing benchmark and saving results..."
-num_iterations=1;
+num_iterations=3;
 while getopts n:c arg; do
     case $arg in
         c) do_csv=true;;
@@ -22,7 +22,7 @@ function do_benchmark() {
         echo "Already have results for $1"
     else
         echo "Executing workload $1"
-        $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M | tee ./results/$1_results.txt
+        $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M --query true --it 100000 --dtest true --duration 1000000 | tee ./results/$1_results.txt
     fi
 }
 

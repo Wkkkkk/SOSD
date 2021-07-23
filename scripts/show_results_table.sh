@@ -13,7 +13,7 @@ function CreateTable() {
   ParseFile fb_200M_uint64_results.txt
   ParseFile lognormal_200M_uint64_results.txt
   ParseFile normal_200M_uint64_results.txt
-  ParseFile osm_cellids_200M_uint64_results.txt
+#  ParseFile osm_cellids_200M_uint64_results.txt
   ParseFile uniform_dense_200M_uint64_results.txt
   ParseFile uniform_sparse_200M_uint64_results.txt
   ParseFile wiki_ts_200M_uint64_results.txt
@@ -43,17 +43,9 @@ function ParseFile() {
   }
 
   BEGIN {
-    idx_names[0] = "RMI"
-    idx_names[1] = "RS"
-    idx_names[2] = "ART"
-    idx_names[3] = "PGM"
-    idx_names[4] = "BTree"
-    idx_names[5] = "IBTree"
-    idx_names[6] = "ALEX"
-    idx_names[7] = "RBS"
-    idx_names[8] = "RobinHash"
-    idx_names[9] = "BinarySearch"
-    idx_names[10] = "TS"
+    idx_names[0] = "BTree"
+    idx_names[1] = "FiBA"
+    idx_names[2] = "ALEX"
 
 #    idx_name_mapping["ART"] = "ART"
 #    idx_name_mapping["stx::btree_multimap"] = "B-tree"
@@ -71,7 +63,7 @@ function ParseFile() {
         printf("%10s |", idx_names[i])
       }
       print ""
-      print "| ------------- | ---------:| ---------:| ---------:| ---------:| ---------:| ---------:| ---------:| ---------:| ---------:|"
+      print "| ------------- | ---------:| ---------:| ---------:| "
     }
 
     # Translate file name into nice date set name to be displayed in the table
@@ -109,7 +101,7 @@ function ParseFile() {
     }
 
     # Adjust repeat count
-    # NF == 7
+    # NF >= 7
     repeat_count = NF - 6
 
     # Gather all measurements
@@ -180,7 +172,7 @@ function AddAverageLine() {
     }
 
     END {
-      print "| ------------- | ---------:| ---------:| ---------:| ---------:| ---------:| ---------:| ---------:| ---------:| ---------:|"
+      print "| ------------- | ---------:| ---------:| ---------:| "
       printf "| avg           |"
       for(i in index_names) {
         res = (index_sum[i] / index_count[i])

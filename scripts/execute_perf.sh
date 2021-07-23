@@ -21,7 +21,7 @@ function do_benchmark() {
 
 mkdir -p ./results
 
-for dataset in $(cat scripts/datasets_under_test_searches.txt); do
+for dataset in $(cat scripts/datasets_under_test.txt); do
     do_benchmark "$dataset"
 done
 

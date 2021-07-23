@@ -451,11 +451,9 @@ class Benchmark {
     if (!exp.do_data_test) lookups_.resize(exp.iterations);
     else {
       // do test on real-world unsorted data
-      if (!is_sorted(lookups_.begin(), lookups_.end())) {
-        std::sort(lookups_.begin(), lookups_.end(), [](const auto &a, const auto &b) {
-          return a.key < b.key;
-        });
-      }
+      std::sort(lookups_.begin(), lookups_.end(), [](const auto &a, const auto &b) {
+        return a.key < b.key;
+      });
     }
 
     runs_.resize(num_repeats_);
@@ -539,6 +537,8 @@ class Benchmark {
         _mm_mfence();
       }
 
+      const auto start = std::chrono::high_resolution_clock::now();
+
       const int lookup_key = lookups_[i].key;
       if (index.data_size() == 0 || exp.window_duration >= index.youngest() - lookup_key) {
         index.insert(lookup_key,  1 + (lookup_key % 101));
@@ -549,9 +549,16 @@ class Benchmark {
       }
       silly_combine(force_side_effect, index.query());
 
+      const auto end = std::chrono::high_resolution_clock::now();
+      const auto timing =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+              .count();
+      individual_ns_sum_ += timing;
+
       if constexpr (fence) __sync_synchronize();
     }
 
+    exp.latencies.push_back(individual_ns_sum_/lookups_.size());
     std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
   }
 

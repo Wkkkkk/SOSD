@@ -193,6 +193,7 @@ int main(int argc, char* argv[]) {
   bool latency = true;
   std::vector<uint64_t> latencies;
   sosd::Experiment exp(window_size, iterations, disorder, latency, latencies);
+  exp.query_mode = query_mode;
   if (aggregation_function == "sum")
     exp.func = Sum<uint64_t>();
   else if (aggregation_function == "max")
