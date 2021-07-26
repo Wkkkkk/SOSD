@@ -1002,7 +1002,23 @@ public:
 
   std::string name() const { return "FiBA"; }
 
-  size_t size() const { return _size; }
+  size_t size() const {
+    return size_(_root);
+  }
+
+  size_t size_(Node* node) const {
+    if (node == nullptr) return 0;
+
+    size_t result = sizeof(int) + 2 * sizeof(bool) + 2 * sizeof(Node*);
+    if (!node->isLeaf()) {
+      result += maxArity * sizeof(timeT) + maxArity * sizeof(aggT);
+
+      for (int i=0, n=node->arity(); i<n; i++)
+        result += size_(node->getChild(i));
+    }
+
+    return result;
+  }
 
   size_t data_size() const { return _size; }
 
