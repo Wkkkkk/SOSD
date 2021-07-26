@@ -288,18 +288,21 @@ class Benchmark {
         params.setParam("index", index.name());
         params.setParam("variant", index.variant());
         PerfEventBlock e(exp.iterations, params, /*printHeader=*/first_run_);
-        DoQuery<Index, false, false>(index, exp);
+        DoQuery<Index, false, false, false>(index, exp);
       }));
     } else if (cold_cache_) {
       if (num_threads_ > 1)
         util::fail("cold cache not supported with multiple threads");
-      DoQuery<Index, false, true>(index, exp);
+      DoQuery<Index, false, true, false>(index, exp);
       PrintResult(index);
     } else if (fence_) {
-      DoQuery<Index, true, false>(index, exp);
+      DoQuery<Index, true, false, false>(index, exp);
+      PrintResult(index);
+    } else if (exp.latency) {
+      DoQuery<Index, false, false, true>(index, exp);
       PrintResult(index);
     } else {
-      DoQuery<Index, false, false>(index, exp);
+      DoQuery<Index, false, false, false>(index, exp);
       PrintResult(index);
     }
 
@@ -351,7 +354,7 @@ class Benchmark {
     runs_.resize(num_repeats_);
     for (unsigned int i = 0; i < num_repeats_; ++i) {
       random_sum_ = 0;
-      individual_ns_sum_ = 0;
+      for(int j = 0; j < 3; j++) { individual_ns_sum_[j] = 0; }
 
       uint64_t ms;
       if (num_threads_ == 1) {
@@ -415,7 +418,7 @@ class Benchmark {
         const auto timing =
             std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
                 .count();
-        individual_ns_sum_ += timing;
+        individual_ns_sum_[0] += timing;
 
       } else {
         // not tracking errors, measure the lookup time.
@@ -440,7 +443,7 @@ class Benchmark {
     }
   }
 
-  template <class Index, bool fence, bool clear_cache>
+  template <class Index, bool fence, bool clear_cache, bool latency>
   void DoQuery(Index& index, Experiment exp) {
     if (build_) return;
 
@@ -459,14 +462,14 @@ class Benchmark {
     runs_.resize(num_repeats_);
     for (unsigned int i = 0; i < num_repeats_; ++i) {
       random_sum_ = 0;
-      individual_ns_sum_ = 0;
+      for(int j = 0; j < 3; j++) { individual_ns_sum_[j] = 0; }
 
       uint64_t ms = util::timing([&] {
         if(exp.do_data_test) {
-          DoDataDrivenQueryCoreLoop<Index, fence, clear_cache>(
+          DoDataDrivenQueryCoreLoop<Index, fence, clear_cache, latency>(
               index, exp, run_failed);
         } else {
-          DoQueryCoreLoop<Index, fence, clear_cache>(
+          DoQueryCoreLoop<Index, fence, clear_cache, latency>(
               index, exp, run_failed);
         }
       });
@@ -479,7 +482,7 @@ class Benchmark {
     }
   }
 
-  template <class Index, bool fence, bool clear_cache>
+  template <class Index, bool fence, bool clear_cache, bool latency>
   void DoQueryCoreLoop(Index& index, Experiment exp, bool& run_failed) {
     typename Index::outT force_side_effect = typename Index::outT();
     while(index.data_size() != 0) { index.evict(); }
@@ -505,25 +508,43 @@ class Benchmark {
         _mm_mfence();
       }
 
-      const auto start = std::chrono::high_resolution_clock::now();
-      index.evict();
-      index.insert(i, 1 + (i % 101));
-      silly_combine(force_side_effect, index.query());
-      const auto end = std::chrono::high_resolution_clock::now();
+      if constexpr (latency) {
+        const auto start = std::chrono::high_resolution_clock::now();
+        index.evict();
+        const auto evict = std::chrono::high_resolution_clock::now();
+        index.insert(i, 1 + (i % 101));
+        const auto insert = std::chrono::high_resolution_clock::now();
+        silly_combine(force_side_effect, index.query());
+        const auto end = std::chrono::high_resolution_clock::now();
 
-      const auto timing =
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
-              .count();
-      individual_ns_sum_ += timing;
+        individual_ns_sum_[0] += std::chrono::duration_cast<std::chrono::nanoseconds>(evict - start)
+            .count();
+        individual_ns_sum_[1] += std::chrono::duration_cast<std::chrono::nanoseconds>(insert - evict)
+            .count();
+        individual_ns_sum_[2] += std::chrono::duration_cast<std::chrono::nanoseconds>(end - insert)
+            .count();
+      } else {
+        index.evict();
+        index.insert(i, 1 + (i % 101));
+        silly_combine(force_side_effect, index.query());
+      }
 
       if constexpr (fence) __sync_synchronize();
     }
 
-    exp.latencies.push_back(individual_ns_sum_/(exp.iterations - exp.window_size));
+    if constexpr (latency) {
+      uint64_t ns_sum = 0;
+      for (unsigned long j : individual_ns_sum_) {
+        ns_sum += j;
+      }
+      for (unsigned long j : individual_ns_sum_) {
+        exp.latencies.push_back(100 * j / ns_sum);
+      }
+    }
     std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
   }
 
-  template <class Index, bool fence, bool clear_cache>
+  template <class Index, bool fence, bool clear_cache, bool latency>
   void DoDataDrivenQueryCoreLoop(Index& index, Experiment exp, bool& run_failed) {
     typename Index::outT force_side_effect = typename Index::outT();
     while(index.data_size() != 0) { index.evict(); }
@@ -537,28 +558,61 @@ class Benchmark {
         _mm_mfence();
       }
 
-      const auto start = std::chrono::high_resolution_clock::now();
+      if constexpr (latency) {
+        const auto start = std::chrono::high_resolution_clock::now();
 
-      const int lookup_key = lookups_[i].key;
-      if (index.data_size() == 0 || exp.window_duration >= index.youngest() - lookup_key) {
-        index.insert(lookup_key,  1 + (lookup_key % 101));
-      }
-      const auto youngest = index.youngest();
-      while (exp.window_duration < (youngest - index.oldest())) {
-        index.evict();
-      }
-      silly_combine(force_side_effect, index.query());
+        const int lookup_key = lookups_[i].key;
+        if (index.data_size() == 0 ||
+            exp.window_duration >= index.youngest() - lookup_key) {
+          index.insert(lookup_key, 1 + (lookup_key % 101));
+        }
+        const auto insert = std::chrono::high_resolution_clock::now();
 
-      const auto end = std::chrono::high_resolution_clock::now();
-      const auto timing =
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
-              .count();
-      individual_ns_sum_ += timing;
+        const auto youngest = index.youngest();
+        while (exp.window_duration < (youngest - index.oldest())) {
+          index.evict();
+        }
+        const auto evict = std::chrono::high_resolution_clock::now();
+
+        silly_combine(force_side_effect, index.query());
+        const auto end = std::chrono::high_resolution_clock::now();
+
+        {
+          individual_ns_sum_[0] +=
+              std::chrono::duration_cast<std::chrono::nanoseconds>(evict - insert)
+                  .count();
+          individual_ns_sum_[1] +=
+              std::chrono::duration_cast<std::chrono::nanoseconds>(insert - start)
+                  .count();
+          individual_ns_sum_[2] +=
+              std::chrono::duration_cast<std::chrono::nanoseconds>(end - insert)
+                  .count();
+        }
+      } else {
+        const int lookup_key = lookups_[i].key;
+        if (index.data_size() == 0 ||
+            exp.window_duration >= index.youngest() - lookup_key) {
+          index.insert(lookup_key, 1 + (lookup_key % 101));
+        }
+
+        const auto youngest = index.youngest();
+        while (exp.window_duration < (youngest - index.oldest())) {
+          index.evict();
+        }
+
+        silly_combine(force_side_effect, index.query());
+      }
 
       if constexpr (fence) __sync_synchronize();
     }
 
-    exp.latencies.push_back(individual_ns_sum_/lookups_.size());
+    if constexpr (latency) {
+      uint64_t ns_sum = 0;
+      for(unsigned long j : individual_ns_sum_) { ns_sum += j; }
+      for(unsigned long j : individual_ns_sum_) {
+        exp.latencies.push_back(100 * j / ns_sum);
+      }
+    }
     std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
   }
 
@@ -604,7 +658,9 @@ class Benchmark {
     }
 
     if (cold_cache_) {
-      const double ns_per = (static_cast<double>(individual_ns_sum_)) /
+      uint64_t ns_sum = 0;
+      for(unsigned long j : individual_ns_sum_) { ns_sum += j; }
+      const double ns_per = (static_cast<double>(ns_sum)) /
                             (static_cast<double>(lookups_.size()));
       std::cout << "RESULT: " << index.name() << "," << index.variant() << ","
                 << ns_per << "," << index.size() << "," << build_ns_ << ","
@@ -658,7 +714,9 @@ class Benchmark {
     }
 
     if (cold_cache_) {
-      const double ns_per = (static_cast<double>(individual_ns_sum_)) /
+      uint64_t ns_sum = 0;
+      for(unsigned long j : individual_ns_sum_) { ns_sum += j; }
+      const double ns_per = (static_cast<double>(ns_sum)) /
                             (static_cast<double>(lookups_.size()));
       fout << index.name() << "," << index.variant() << "," << ns_per << ","
            << index.size() << "," << build_ns_ << "," << searcher_.name()
@@ -694,7 +752,7 @@ class Benchmark {
   }
 
   uint64_t random_sum_ = 0;
-  uint64_t individual_ns_sum_ = 0;
+  uint64_t individual_ns_sum_[3] = {0, 0, 0};
   const std::string data_filename_;
   const std::string lookups_filename_;
   std::string dataset_name_;
