@@ -15,7 +15,7 @@ function do_benchmark() {
         echo "Already have results for $1"
     else
         echo "Executing workload $1"
-        $BENCHMARK --perf ./data/$1 ./data/$1_equality_lookups_1M | tee $RESULTS
+        $BENCHMARK --perf ./data/$1 ./data/$1_equality_lookups_1M --query true --ws 10000 --di 100 --dtest true --duration 1000000 | tee $RESULTS
     fi
 }
 

@@ -3,19 +3,19 @@
 FOLDER=results
 
 function CreateTable() {
-  ParseFile books_200M_uint32_results.txt 1
+#  ParseFile books_200M_uint32_results.txt 1
 #  ParseFile fb_200M_uint32_results.txt
-  ParseFile lognormal_200M_uint32_results.txt
-  ParseFile normal_200M_uint32_results.txt
-  ParseFile uniform_dense_200M_uint32_results.txt
-  ParseFile uniform_sparse_200M_uint32_results.txt
-  ParseFile books_200M_uint64_results.txt
+#  ParseFile lognormal_200M_uint32_results.txt
+#  ParseFile normal_200M_uint32_results.txt
+#  ParseFile uniform_dense_200M_uint32_results.txt
+#  ParseFile uniform_sparse_200M_uint32_results.txt
+  ParseFile books_200M_uint64_results.txt 1
   ParseFile fb_200M_uint64_results.txt
-  ParseFile lognormal_200M_uint64_results.txt
-  ParseFile normal_200M_uint64_results.txt
+#  ParseFile lognormal_200M_uint64_results.txt
+#  ParseFile normal_200M_uint64_results.txt
 #  ParseFile osm_cellids_200M_uint64_results.txt
-  ParseFile uniform_dense_200M_uint64_results.txt
-  ParseFile uniform_sparse_200M_uint64_results.txt
+#  ParseFile uniform_dense_200M_uint64_results.txt
+#  ParseFile uniform_sparse_200M_uint64_results.txt
   ParseFile wiki_ts_200M_uint64_results.txt
 }
 
