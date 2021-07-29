@@ -1036,6 +1036,8 @@ public:
     value = node->getValue(node->arity() - 2);
     return node;
   }
+
+  int variant() const { return minArity; }
 };
 
 template <typename timeT, int minArity, Kind kind, class BinaryFunction, class T>

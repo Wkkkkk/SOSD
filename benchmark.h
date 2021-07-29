@@ -10,6 +10,7 @@
 #include <sstream>
 #include <list>
 #include <variant>
+#include <bitset>
 
 #include "config.h"
 #include "searches/branching_binary_search.h"
@@ -31,6 +32,8 @@ static const auto cpu_mask = dtl::this_thread::get_cpu_affinity();
 static constexpr std::size_t batch_size = 1u << 16;
 
 namespace sosd {
+
+using std::bitset;
 
 template <typename T>
 inline void silly_combine(T& a, const T& b) {
@@ -55,7 +58,7 @@ struct Experiment {
   size_t window_size;
   uint64_t iterations;
   uint64_t ooo_distance;
-  bool latency;
+  bool record;
   std::vector<uint64_t>& latencies;
 
   // aggregate function
@@ -71,11 +74,11 @@ struct Experiment {
   uint64_t window_duration; // in nanoseconds (10-9s)
 
   Experiment(size_t w, uint64_t i, bool l, std::vector<uint64_t>& ls):
-      window_size(w), iterations(i), ooo_distance(0), latency(l), latencies(ls)
+      window_size(w), iterations(i), ooo_distance(0), record(l), latencies(ls)
   {}
 
   Experiment(size_t w, uint64_t i, uint64_t d, bool l, std::vector<uint64_t>& ls):
-      window_size(w), iterations(i), ooo_distance(d), latency(l), latencies(ls)
+      window_size(w), iterations(i), ooo_distance(d), record(l), latencies(ls)
   {}
 };
 
@@ -298,7 +301,7 @@ class Benchmark {
     } else if (fence_) {
       DoQuery<Index, true, false, false>(index, exp);
       PrintResult(index);
-    } else if (exp.latency) {
+    } else if (exp.record) {
       DoQuery<Index, false, false, true>(index, exp);
       PrintResult(index);
     } else {
@@ -354,7 +357,6 @@ class Benchmark {
     runs_.resize(num_repeats_);
     for (unsigned int i = 0; i < num_repeats_; ++i) {
       random_sum_ = 0;
-      for(int j = 0; j < 3; j++) { individual_ns_sum_[j] = 0; }
 
       uint64_t ms;
       if (num_threads_ == 1) {
@@ -405,7 +407,6 @@ class Benchmark {
         }
         _mm_mfence();
 
-        const auto start = std::chrono::high_resolution_clock::now();
         bound = index.EqualityLookup(lookup_key);
         uint64_t actual = searcher_.search(data_, lookup_key, &qualifying,
                                            bound.start, bound.stop);
@@ -413,13 +414,6 @@ class Benchmark {
           run_failed = true;
           return;
         }
-        const auto end = std::chrono::high_resolution_clock::now();
-
-        const auto timing =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
-                .count();
-        individual_ns_sum_[0] += timing;
-
       } else {
         // not tracking errors, measure the lookup time.
         bound = index.EqualityLookup(lookup_key);
@@ -443,7 +437,7 @@ class Benchmark {
     }
   }
 
-  template <class Index, bool fence, bool clear_cache, bool latency>
+  template <class Index, bool fence, bool clear_cache, bool record>
   void DoQuery(Index& index, Experiment exp) {
     if (build_) return;
 
@@ -457,19 +451,22 @@ class Benchmark {
       std::sort(lookups_.begin(), lookups_.end(), [](const auto &a, const auto &b) {
         return a.key < b.key;
       });
+      // remove duplicates
+      lookups_.erase(std::unique(lookups_.begin(), lookups_.end(), [](const auto &a, const auto &b) {
+        return a.key == b.key;
+      }), lookups_.end());
     }
 
     runs_.resize(num_repeats_);
     for (unsigned int i = 0; i < num_repeats_; ++i) {
       random_sum_ = 0;
-      for(int j = 0; j < 3; j++) { individual_ns_sum_[j] = 0; }
 
       uint64_t ms = util::timing([&] {
         if(exp.do_data_test) {
-          DoDataDrivenQueryCoreLoop<Index, fence, clear_cache, latency>(
+          DoDataDrivenQueryCoreLoop<Index, fence, clear_cache, record>(
               index, exp, run_failed);
         } else {
-          DoQueryCoreLoop<Index, fence, clear_cache, latency>(
+          DoQueryCoreLoop<Index, fence, clear_cache, record>(
               index, exp, run_failed);
         }
       });
@@ -482,12 +479,12 @@ class Benchmark {
     }
   }
 
-  template <class Index, bool fence, bool clear_cache, bool latency>
+  template <class Index, bool fence, bool clear_cache, bool record>
   void DoQueryCoreLoop(Index& index, Experiment exp, bool& run_failed) {
     typename Index::outT force_side_effect = typename Index::outT();
     while(index.data_size() != 0) { index.evict(); }
 
-    int i = 0;
+    uint64_t i = 0;
     for (i = exp.iterations - exp.ooo_distance; i < exp.iterations; ++i) {
       index.insert(i, 1 + (i % 101));
     }
@@ -508,21 +505,18 @@ class Benchmark {
         _mm_mfence();
       }
 
-      if constexpr (latency) {
-        const auto start = std::chrono::high_resolution_clock::now();
-        index.evict();
-        const auto evict = std::chrono::high_resolution_clock::now();
-        index.insert(i, 1 + (i % 101));
-        const auto insert = std::chrono::high_resolution_clock::now();
-        silly_combine(force_side_effect, index.query());
-        const auto end = std::chrono::high_resolution_clock::now();
+      if constexpr (record) {
+        individual_ns_sum_[0] += util::timing([&] {
+          index.evict();
+        });
+        individual_ns_sum_[1] += util::timing([&] {
+          index.insert(i, 1 + (i % 101));
+        });
+        individual_ns_sum_[2] += util::timing([&] {
+          silly_combine(force_side_effect, index.query());
+        });
 
-        individual_ns_sum_[0] += std::chrono::duration_cast<std::chrono::nanoseconds>(evict - start)
-            .count();
-        individual_ns_sum_[1] += std::chrono::duration_cast<std::chrono::nanoseconds>(insert - evict)
-            .count();
-        individual_ns_sum_[2] += std::chrono::duration_cast<std::chrono::nanoseconds>(end - insert)
-            .count();
+        iteration_num_++;
       } else {
         index.evict();
         index.insert(i, 1 + (i % 101));
@@ -532,7 +526,7 @@ class Benchmark {
       if constexpr (fence) __sync_synchronize();
     }
 
-    if constexpr (latency) {
+    if constexpr (record) {
       uint64_t ns_sum = 0;
       for (unsigned long j : individual_ns_sum_) {
         ns_sum += j;
@@ -541,13 +535,20 @@ class Benchmark {
         exp.latencies.push_back(100 * j / ns_sum);
       }
     }
-    std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
+
+    std::cout << index.name() << " " << index.variant() << " "
+              << index.data_size() << " force_side_effect: " << force_side_effect << std::endl;
   }
 
-  template <class Index, bool fence, bool clear_cache, bool latency>
+  template <class Index, bool fence, bool clear_cache, bool record>
   void DoDataDrivenQueryCoreLoop(Index& index, Experiment exp, bool& run_failed) {
     typename Index::outT force_side_effect = typename Index::outT();
     while(index.data_size() != 0) { index.evict(); }
+
+    for (int i = 0; i < exp.window_size && i < lookups_.size(); ++i) {
+      const uint64_t lookup_key = lookups_[i].key;
+      index.insert(lookup_key, 1 + (i % 101));
+    }
 
     for (int i = 0; i < lookups_.size() ; ++i) {
       if constexpr (clear_cache) {
@@ -558,62 +559,45 @@ class Benchmark {
         _mm_mfence();
       }
 
-      if constexpr (latency) {
-        const auto start = std::chrono::high_resolution_clock::now();
+      const uint64_t lookup_key = lookups_[i].key;
 
-        const int lookup_key = lookups_[i].key;
-        if (index.data_size() == 0 ||
-            exp.window_duration >= index.youngest() - lookup_key) {
-          index.insert(lookup_key, 1 + (lookup_key % 101));
-        }
-        const auto insert = std::chrono::high_resolution_clock::now();
+      if constexpr (record) {
+        individual_ns_sum_[0] += util::timing([&] {
+          if(index.data_size() >= exp.window_size)
+            index.evict();
+        });
+        //@warning:  ALEX may crash here!
+        //@warning:  FiBA may fail to insert element here!
+        individual_ns_sum_[1] += util::timing([&] {
+          index.insert(lookup_key, 1 + (i % 101));
+        });
+        individual_ns_sum_[2] += util::timing([&] {
+          silly_combine(force_side_effect, index.query());
+        });
 
-        const auto youngest = index.youngest();
-        while (exp.window_duration < (youngest - index.oldest())) {
-          index.evict();
-        }
-        const auto evict = std::chrono::high_resolution_clock::now();
-
-        silly_combine(force_side_effect, index.query());
-        const auto end = std::chrono::high_resolution_clock::now();
-
-        {
-          individual_ns_sum_[0] +=
-              std::chrono::duration_cast<std::chrono::nanoseconds>(evict - insert)
-                  .count();
-          individual_ns_sum_[1] +=
-              std::chrono::duration_cast<std::chrono::nanoseconds>(insert - start)
-                  .count();
-          individual_ns_sum_[2] +=
-              std::chrono::duration_cast<std::chrono::nanoseconds>(end - insert)
-                  .count();
-        }
+        iteration_num_++;
       } else {
-        const int lookup_key = lookups_[i].key;
-        if (index.data_size() == 0 ||
-            exp.window_duration >= index.youngest() - lookup_key) {
-          index.insert(lookup_key, 1 + (lookup_key % 101));
-        }
-
-        const auto youngest = index.youngest();
-        while (exp.window_duration < (youngest - index.oldest())) {
-          index.evict();
-        }
-
+        index.evict();
+        index.insert(lookup_key, 1 + (i % 101));
         silly_combine(force_side_effect, index.query());
       }
 
       if constexpr (fence) __sync_synchronize();
     }
 
-    if constexpr (latency) {
+    if constexpr (record) {
       uint64_t ns_sum = 0;
       for(unsigned long j : individual_ns_sum_) { ns_sum += j; }
       for(unsigned long j : individual_ns_sum_) {
         exp.latencies.push_back(100 * j / ns_sum);
       }
     }
-    std::cerr << index.name() << " force_side_effect: " << force_side_effect << std::endl;
+
+    {
+      bitset<64> qword = force_side_effect;
+      std::cout << index.name() << " " << index.variant() << " "
+                << index.data_size() << " force_side_effect: " << qword.to_ullong() << std::endl;
+    }
   }
 
   template <class Index>
@@ -657,24 +641,20 @@ class Benchmark {
       return;
     }
 
-    if (cold_cache_) {
-      uint64_t ns_sum = 0;
-      for(unsigned long j : individual_ns_sum_) { ns_sum += j; }
-      const double ns_per = (static_cast<double>(ns_sum)) /
-                            (static_cast<double>(lookups_.size()));
-      std::cout << "RESULT: " << index.name() << "," << index.variant() << ","
-                << ns_per << "," << index.size() << "," << build_ns_ << ","
-                << searcher_.name() << std::endl;
-      return;
-    }
-
     // print main results
     std::ostringstream all_times;
-    for (unsigned int i = 0; i < runs_.size(); ++i) {
-      const double ns_per_lookup =
-          static_cast<double>(runs_[i]) / lookups_.size();
-      all_times << "," << ns_per_lookup;
+    double total_time = 0;
+    for (unsigned long run : runs_) {
+      total_time += static_cast<double>(run) / lookups_.size();
     }
+    const double ns_per_iteration = total_time / runs_.size();
+    all_times << "," << ns_per_iteration;
+    for(unsigned long j : individual_ns_sum_) {
+      const double ns_per_operation = static_cast<double>(j) / iteration_num_;
+      all_times << "," << ns_per_operation;
+    }
+    individual_ns_sum_[0] = individual_ns_sum_[1] = individual_ns_sum_[2] = 0;
+    iteration_num_ = 0;
 
     // don't print a line if (the first) run failed
     if (runs_[0] != 0) {
@@ -713,17 +693,6 @@ class Benchmark {
       return;
     }
 
-    if (cold_cache_) {
-      uint64_t ns_sum = 0;
-      for(unsigned long j : individual_ns_sum_) { ns_sum += j; }
-      const double ns_per = (static_cast<double>(ns_sum)) /
-                            (static_cast<double>(lookups_.size()));
-      fout << index.name() << "," << index.variant() << "," << ns_per << ","
-           << index.size() << "," << build_ns_ << "," << searcher_.name()
-           << std::endl;
-      return;
-    }
-
     // compute median time
     std::vector<double> times;
     double median_time;
@@ -753,6 +722,7 @@ class Benchmark {
 
   uint64_t random_sum_ = 0;
   uint64_t individual_ns_sum_[3] = {0, 0, 0};
+  uint64_t iteration_num_ = 0;
   const std::string data_filename_;
   const std::string lookups_filename_;
   std::string dataset_name_;

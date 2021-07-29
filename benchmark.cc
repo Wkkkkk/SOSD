@@ -153,7 +153,10 @@ int main(int argc, char* argv[]) {
       "dtest", "do data test",
       cxxopts::value<string>()->default_value(""))(
       "duration", "window duration for data-driven test, in nanoseconds(10-9s)",
-      cxxopts::value<size_t>()->default_value("10"));
+      cxxopts::value<size_t>()->default_value("10"))(
+      "record", "record each operation",
+      cxxopts::value<string>()->default_value("true")
+      );
 
   options.parse_positional({"data", "lookups", "positional"});
 
@@ -188,11 +191,11 @@ int main(int argc, char* argv[]) {
   const size_t iterations = result["it"].as<size_t>();
   const size_t disorder = result["di"].as<size_t>();
   const size_t duration = result["duration"].as<size_t>();
+  const bool record = result.count("record") || std::getenv("RECORD");
   std::string only;
 
-  bool latency = true;
   std::vector<uint64_t> latencies;
-  sosd::Experiment exp(window_size, iterations, disorder, latency, latencies);
+  sosd::Experiment exp(window_size, iterations, disorder, record, latencies);
   exp.query_mode = query_mode;
   if (aggregation_function == "sum")
     exp.func = Sum<uint64_t>();
@@ -273,7 +276,7 @@ int main(int argc, char* argv[]) {
               << std::endl;
   }
 
-  if (exp.latency) {
+  if (exp.record) {
     std::cout << "window_size: " + std::to_string(exp.window_size) + " latencies are";
     for (auto e: exp.latencies) {
       std::cout  << " " << e;
