@@ -96,6 +96,8 @@ class STXBTree : public UpdatableCompetitor {
 
   int variant() const { return size_scale; }
 
+  std::string op_func() const { return func_.name(); }
+
  private:
   // Using a multimap here since keys may contain duplicates.
   uint64_t total_allocation_size = 0;

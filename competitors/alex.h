@@ -97,6 +97,8 @@ class Alex : public UpdatableCompetitor {
 
   int variant() const { return size_scale; }
 
+  std::string op_func() const { return func_.name(); }
+
  private:
   uint64_t data_size_ = 0;
   alex::Alex<KeyType, uint64_t> map_;

@@ -1038,6 +1038,8 @@ public:
   }
 
   int variant() const { return minArity; }
+
+  std::string op_func() const { return _binOp.name(); }
 };
 
 template <typename timeT, int minArity, Kind kind, class BinaryFunction, class T>

@@ -37,6 +37,8 @@ public:
         accum += b;
     }
 
+    std::string name() const { return "sum"; }
+
     static const Partial identity;
 };
 
@@ -74,7 +76,9 @@ public:
         }
     }
 
-    static const Partial identity;
+  std::string name() const { return "max"; }
+
+  static const Partial identity;
 };
 
 template <typename I, typename P, typename O>
@@ -130,7 +134,9 @@ public:
         ++accum.n;
     }
 
-    static const Partial identity;
+  std::string name() const { return "mean"; }
+
+  static const Partial identity;
 };
 
 template <class In>

@@ -56,7 +56,7 @@ void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
   }
 
   // Build and probe individual indexes.
-  check_only("RMI", benchmark_32_rmi(benchmark, pareto, filename));
+//  check_only("RMI", benchmark_32_rmi(benchmark, pareto, filename));
   check_only("RS", benchmark_32_rs(benchmark, pareto));
   check_only("TS", benchmark_32_ts(benchmark, pareto));
   check_only("PGM", benchmark_32_pgm(benchmark, pareto));
@@ -91,7 +91,7 @@ void execute_64_bit(Benchmark benchmark, bool pareto, bool only_mode,
   }
 
   // Build and probe individual indexes.
-  check_only("RMI", benchmark_64_rmi(benchmark, pareto, filename));
+//  check_only("RMI", benchmark_64_rmi(benchmark, pareto, filename));
   check_only("RS", benchmark_64_rs(benchmark, pareto));
   check_only("TS", benchmark_64_ts(benchmark, pareto));
   check_only("PGM", benchmark_64_pgm(benchmark, pareto));

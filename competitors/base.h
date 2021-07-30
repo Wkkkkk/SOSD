@@ -9,6 +9,8 @@ class Competitor {
   }
 
   int variant() const { return 0; }
+
+  std::string op_func() const { return ""; }
 };
 
 class UpdatableCompetitor : public Competitor {

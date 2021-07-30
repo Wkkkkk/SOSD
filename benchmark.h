@@ -661,7 +661,7 @@ class Benchmark {
       std::cout << "RESULT: " << index.name() << "," << index.variant()
                 << all_times.str()  // has a leading comma
                 << "," << index.size() << "," << build_ns_ << ","
-                << searcher_.name() << std::endl;
+                << index.op_func() << std::endl;
     }
     if (csv_) {
       PrintResultCSV(index);

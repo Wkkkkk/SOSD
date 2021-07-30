@@ -1,13 +1,7 @@
 #! /usr/bin/env bash
 
 echo "Executing benchmark and saving results..."
-num_iterations=3;
-while getopts n:c arg; do
-    case $arg in
-        c) do_csv=true;;
-        n) num_iterations=${OPTARG};;
-    esac
-done
+num_repeats=1;
 
 BENCHMARK=build/benchmark
 if [ ! -f $BENCHMARK ]; then
@@ -15,35 +9,39 @@ if [ ! -f $BENCHMARK ]; then
     exit
 fi
 
-function do_benchmark() {
+function do_data_benchmark() {
+    num_iterations=$3
+    window_size=$4
 
-    RESULTS=./results/$1_results.txt
+    RESULTS=./results/$1-results_$3_$4.txt
     if [ -f $RESULTS ]; then
         echo "Already have results for $1"
     else
         echo "Executing workload $1"
-        $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M --query true --it 100000 --ws 1000 --di 100 --dtest true --duration 1000000 | tee ./results/$1_results.txt
+        $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M --query true --it $num_iterations --ws $window_size --di 100 --dtest true --record true | tee $RESULTS
     fi
 }
 
-function do_benchmark_csv() {
+function do_synthetic_benchmark() {
+    num_iterations=$3
+    window_size=$4
 
-    RESULTS=./results/$1_results_table.csv
+    RESULTS=./results/synthetic-results_$3_$4.txt
     if [ -f $RESULTS ]; then
-	# Previously existing file could be from incomplete run
-        echo "Removing results CSV for $1"
-	rm $RESULTS
+        echo "Already have results for synthetic data"
+    else
+        echo "Executing workload $1"
+        $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M --query true $num_iterations --ws $window_size --di 100 --record true | tee $RESULTS
     fi
-    echo "Executing workload $1 and printing to CSV"
-    $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M --csv
 }
 
 mkdir -p ./results
 
-for dataset in $(cat scripts/datasets_under_test.txt); do
-    if [ "$do_csv" = true ]; then
-        do_benchmark_csv "$dataset" $num_iterations
-    else
-        do_benchmark "$dataset" $num_iterations
-    fi
+for dataset in $(cat scripts/datasets_under_test.txt);
+do
+  for window_size in 100 200 500 1000 2000 5000
+  do
+    do_synthetic_benchmark $dataset $num_repeats 100000 $window_size
+    do_data_benchmark $dataset $num_repeats 100000 $window_size
+  done
 done

@@ -15,9 +15,9 @@
 #define NAME5(a, b, c, d, e) NAME5_HIDDEN(a, b, c, d, e)
 #define NAME5_HIDDEN(a, b, c, d, e) a##b##c##d##e
 
-#define run_rmi_binary(dtype, name, suffix, variant)                         \
-  if (filename.find("/" #name "_" #dtype) != std::string::npos) {            \
-    benchmark                                                                \
+#define run_rmi_binary(dtype, name, suffix, variant)
+//  if (filename.find("/" #name "_" #dtype) != std::string::npos) {            \
+//    benchmark                                                                \
         .template Run<RMI_B<NAME2(dtype, _t), variant,                       \
                             NAME5(name, _, dtype, _, suffix)::BUILD_TIME_NS, \
                             NAME5(name, _, dtype, _, suffix)::RMI_SIZE,      \
@@ -25,7 +25,7 @@
                             NAME5(name, _, dtype, _, suffix)::lookup,        \
                             NAME5(name, _, dtype, _, suffix)::load,          \
                             NAME5(name, _, dtype, _, suffix)::cleanup>>();   \
-  }
+//  }
 
 #define run_rmi_binary_pareto(dtype, name)  \
   {                                         \
