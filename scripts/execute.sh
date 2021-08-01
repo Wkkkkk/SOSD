@@ -49,13 +49,13 @@ do
 done
 
 # window size
-for window_size in 100 200 500 #1000 2000 5000
+for window_size in 100 200 500 1000 2000 5000
 do
   do_synthetic_benchmark $synthetic_data $num_repeats 100000 $window_size 50 sum
 done
 
 # disorder
-for disorder in 0 10 20 50 #100 200 500
+for disorder in 0 10 20 50 100 200 500
 do
   do_synthetic_benchmark $synthetic_data $num_repeats 100000 1000 $disorder sum
 done

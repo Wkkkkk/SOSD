@@ -6,6 +6,7 @@
 #include "benchmarks/benchmark_alex.h"
 #include "benchmarks/benchmark_art.h"
 #include "benchmarks/benchmark_btree.h"
+#include "benchmarks/benchmark_rbtree.h"
 #include "benchmarks/benchmark_cht.h"
 #include "benchmarks/benchmark_fast64.h"
 #include "benchmarks/benchmark_fst.h"
@@ -52,6 +53,7 @@ void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
     check_only("ALEX", benchmark_32_alex_aggregate(benchmark, exp));
     check_only("BTree", benchmark_32_btree_aggregate(benchmark, exp));
     check_only("FIBA", benchmark_32_fiba_aggregate(benchmark, exp));
+    check_only("RBTree", benchmark_32_rbtree_aggregate(benchmark, exp));
     return;
   }
 
@@ -87,6 +89,7 @@ void execute_64_bit(Benchmark benchmark, bool pareto, bool only_mode,
     check_only("ALEX", benchmark_64_alex_aggregate(benchmark, exp));
     check_only("BTree", benchmark_64_btree_aggregate(benchmark, exp));
     check_only("FIBA", benchmark_64_fiba_aggregate(benchmark, exp));
+    check_only("RBTree", benchmark_64_rbtree_aggregate(benchmark, exp));
     return;
   }
 

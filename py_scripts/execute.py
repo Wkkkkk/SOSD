@@ -295,7 +295,7 @@ def run_benchmark(params):
     op_func = params[5]
     data_test = params[6]
 
-    param_str = "-r {0} ./data/{1} ./data/{1}_equality_lookups_1M --query true " \
+    param_str = " -r {0} ./data/{1} ./data/{1}_equality_lookups_1M --query true " \
                 "--it {2} --ws {3} --di {4} --af {5} " \
                 "--record true".format(num_repeats, dataset, num_iterations, window_size, disorder, op_func)
 
