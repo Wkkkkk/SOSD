@@ -53,7 +53,7 @@ def read_all_results():
                 new_row['op_func'] = results[8]
 
                 df = df.append(new_row, ignore_index=True)
-
+    df.to_csv(RESULT_DIR+"summary.csv", index=False)
     return df
 
 
@@ -117,7 +117,7 @@ def print_result_for_different_window_size(dataframe, data_sets, iterations, dis
         axs[i].plot(window_size, query_ns, label='query')
         axs[i].set_xlabel(name)
         axs[i].set_ylabel("time(ns)")
-        axs[i].legend(loc='upper right', shadow=True)
+        axs[i].legend(loc='best', shadow=True)
 
     plt.savefig(RESULT_FIGURE_DIR+'window_size(performance).png', dpi=500)
     if show_result:
@@ -144,7 +144,7 @@ def print_model_size_for_different_window_size(dataframe, data_sets, iterations,
         plt.plot(window_size, model_size, label=name)
         plt.xlabel("window size")
         plt.ylabel("model size(bytes)")
-        plt.legend(loc='upper right', shadow=True)
+        plt.legend(loc='best', shadow=True)
 
     plt.savefig(RESULT_FIGURE_DIR+'window_size(model_size).png', dpi=1000)
     if show_result:
@@ -175,7 +175,7 @@ def print_result_for_different_disorder(dataframe, data_sets, iterations, window
         axs[i].plot(disorder, query_ns, label='query')
         axs[i].set_xlabel(name)
         axs[i].set_ylabel("time(ns)")
-        axs[i].legend(loc='upper right', shadow=True)
+        axs[i].legend(loc='best', shadow=True)
 
     plt.savefig(RESULT_FIGURE_DIR+'disorder.png', dpi=1000)
     if show_result:
@@ -184,18 +184,22 @@ def print_result_for_different_disorder(dataframe, data_sets, iterations, window
 
 # draw a plot.
 # X - op_func
-# Y - query time
-def print_result_for_different_datasets(dataframe, iterations, window_size, disorder, op_func, show_result=False):
-    # print(dataframe)
+# Y - operation time
+def print_detailed_result_for_uint64_datasets(dataframe, iterations, window_size, disorder, op_func, show_result=False):
     df = dataframe[(dataframe['iterations'] == iterations) & (dataframe['window_size'] == window_size) &
                    (dataframe['disorder'] == disorder) & (dataframe['op_func'] == op_func)]
+    all_data_set_names = df.groupby(['data_set']).groups.keys()
+    uint64_data_set_names = [name for name in all_data_set_names if str(name).endswith("200M_uint64")]
+    df = df[df['data_set'].isin(uint64_data_set_names)]
 
     data_sets = df.groupby(['data_set']).groups.keys()
-    COLUMN_PER_ROW = 3
-    ROW_NUM = len(data_sets) // 3 + 1
+    COLUMN_PER_ROW = 4
+    ROW_NUM = len(data_sets) // COLUMN_PER_ROW + 1
     VOID_PLOT_NUM = ROW_NUM*COLUMN_PER_ROW - len(data_sets)
-    fig, axs = plt.subplots(ROW_NUM, COLUMN_PER_ROW, figsize=(14, 4))
+    fig, axs = plt.subplots(ROW_NUM, COLUMN_PER_ROW, figsize=(15, 8))
     for i, data_set in enumerate(data_sets):
+        cur_row = i // COLUMN_PER_ROW
+        cur_column = i % COLUMN_PER_ROW
         grouped_result = df.groupby(['data_set']).get_group(data_set)
         name = grouped_result['name']
         index = np.arange(len(name))
@@ -204,16 +208,16 @@ def print_result_for_different_datasets(dataframe, iterations, window_size, diso
         insert_ns = grouped_result['insert_ns']
         query_ns = grouped_result['query_ns']
         # other_ns = total_ns - evict_ns - insert_ns - query_ns
-        # axs[i].bar(index, other_ns, width=0.4, label='other')
-        axs[i].bar(index, evict_ns, width=0.4, label='evict')
-        axs[i].bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert')
-        axs[i].bar(index, query_ns, width=0.4, bottom=evict_ns+insert_ns, label='query')
-        axs[i].set_xticks(index)
-        axs[i].set_xticklabels(name)
-        axs[i].set_xlabel(data_set)
-        axs[i].set_ylabel("time(ns)")
-        axs[i].legend(loc='upper right', shadow=True)
-        # axs[i].set_title('Performance for different aggregation functions')
+        # axs[cur_row][cur_column].bar(index, other_ns, width=0.4, label='other')
+        axs[cur_row][cur_column].bar(index, evict_ns, width=0.4, label='evict')
+        axs[cur_row][cur_column].bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert')
+        axs[cur_row][cur_column].bar(index, query_ns, width=0.4, bottom=evict_ns+insert_ns, label='query')
+        axs[cur_row][cur_column].set_xticks(index)
+        axs[cur_row][cur_column].set_xticklabels(name)
+        axs[cur_row][cur_column].set_xlabel(data_set)
+        axs[cur_row][cur_column].set_ylabel("time(ns)")
+        axs[cur_row][cur_column].legend(loc='upper right', shadow=True)
+        # axs[cur_row][cur_column].set_title('Performance for different aggregation functions')
 
     for i in range(VOID_PLOT_NUM):
         plt.delaxes()
@@ -222,12 +226,47 @@ def print_result_for_different_datasets(dataframe, iterations, window_size, diso
         plt.show()
 
 
+# draw a plot.
+# X - op_func
+# Y - operation time
+def print_summary_for_different_datasets(dataframe, iterations, window_size, disorder, op_func, show_result=False):
+    df = dataframe[(dataframe['iterations'] == iterations) & (dataframe['window_size'] == window_size) &
+                   (dataframe['disorder'] == disorder) & (dataframe['op_func'] == op_func)]
+    median = df.groupby('name').median()
+    median['name'] = median.index
+    print("median performance for each structure: \n", median)
+    median.to_csv(RESULT_DIR+"median.csv", index=False)
+
+    name = median['name']
+    index = list(name)
+    total_ns = median['total_ns']
+    evict_ns = median['evict_ns']
+    insert_ns = median['insert_ns']
+    query_ns = median['query_ns']
+
+    plt.figure()
+    plt.title("Overall Performance")
+    plt.bar(index, evict_ns, width=0.4, label='evict')
+    plt.bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert')
+    plt.bar(index, query_ns, width=0.4, bottom=evict_ns+insert_ns, label='query')
+    plt.xticks(index)
+    plt.xlabel("structures")
+    plt.ylabel("time(ns)")
+    plt.legend(loc='upper right', shadow=True)
+
+    plt.savefig(RESULT_FIGURE_DIR+'overall_performance.png', dpi=1000)
+    if show_result:
+        plt.show()
+
+
+show_result = False
 init()
 dataframe = read_all_results()
-print_result_for_different_aggregation_functions(dataframe, ["synthetic"], 100000, 1000, 50)
-print_result_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum")
-print_model_size_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum")
-print_result_for_different_disorder(dataframe, ["synthetic"], 100000, 1000, "sum")
-print_result_for_different_datasets(dataframe, 100000, 1000, 50, "sum")
-print("Results are saved to:", RESULT_FIGURE_DIR)
+print_result_for_different_aggregation_functions(dataframe, ["synthetic"], 100000, 1000, 50, show_result)
+print_result_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
+print_model_size_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
+print_result_for_different_disorder(dataframe, ["synthetic"], 100000, 1000, "sum", show_result)
+print_detailed_result_for_uint64_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
+print_summary_for_different_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
+print("Results are saved")
 
