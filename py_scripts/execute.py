@@ -39,6 +39,8 @@ def read_all_results():
     for file in os.listdir(RESULT_DIR):
         if not file.endswith(".txt"):
             continue
+        if file.endswith("perf.txt"):
+            continue
 
         full_path = os.path.join(RESULT_DIR, file)
         file_name = file.split('.')[0]

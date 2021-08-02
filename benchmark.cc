@@ -50,10 +50,10 @@ template <class Benchmark>
 void execute_32_bit(Benchmark benchmark, bool pareto, bool only_mode,
                     std::string only, std::string filename, sosd::Experiment exp) {
   if (exp.query_mode) {
-    check_only("ALEX", benchmark_32_alex_aggregate(benchmark, exp));
-    check_only("BTree", benchmark_32_btree_aggregate(benchmark, exp));
-    check_only("FIBA", benchmark_32_fiba_aggregate(benchmark, exp));
     check_only("RBTree", benchmark_32_rbtree_aggregate(benchmark, exp));
+    check_only("ALEX", benchmark_32_alex_aggregate(benchmark, exp));
+    check_only("STXBTree", benchmark_32_btree_aggregate(benchmark, exp));
+    check_only("FIBA", benchmark_32_fiba_aggregate(benchmark, exp));
     return;
   }
 
@@ -86,10 +86,10 @@ template <class Benchmark>
 void execute_64_bit(Benchmark benchmark, bool pareto, bool only_mode,
                     std::string only, std::string filename, sosd::Experiment exp) {
   if (exp.query_mode) {
-    check_only("ALEX", benchmark_64_alex_aggregate(benchmark, exp));
-    check_only("BTree", benchmark_64_btree_aggregate(benchmark, exp));
-    check_only("FIBA", benchmark_64_fiba_aggregate(benchmark, exp));
     check_only("RBTree", benchmark_64_rbtree_aggregate(benchmark, exp));
+    check_only("ALEX", benchmark_64_alex_aggregate(benchmark, exp));
+    check_only("STXBTree", benchmark_64_btree_aggregate(benchmark, exp));
+    check_only("FIBA", benchmark_64_fiba_aggregate(benchmark, exp));
     return;
   }
 
@@ -196,16 +196,26 @@ int main(int argc, char* argv[]) {
   const size_t duration = result["duration"].as<size_t>();
   const bool record = result.count("record") || std::getenv("RECORD");
   std::string only;
+  const DataType type = util::resolve_type(filename);
 
   std::vector<uint64_t> latencies;
   sosd::Experiment exp(window_size, iterations, disorder, record, latencies);
   exp.query_mode = query_mode;
-  if (aggregation_function == "sum")
-    exp.func = Sum<uint64_t>();
-  else if (aggregation_function == "max")
-    exp.func = Max<uint64_t>();
+  switch (type) {
+    case DataType::UINT32: {
+      if (aggregation_function == "sum") exp.func = Sum<uint32_t>();
+      else if (aggregation_function == "max") exp.func = Max<uint32_t>();
+      break;
+    }
+    case DataType::UINT64: {
+      if (aggregation_function == "sum") exp.func = Sum<uint64_t>();
+      else if (aggregation_function == "max") exp.func = Max<uint64_t>();
+
+      break;
+    }
+  }
   exp.do_data_test = dtest_mode;
-  exp.window_duration = duration;
+//  exp.window_duration = duration;
   std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
             << ", ooo_distance " << exp.ooo_distance
             << ", aggregation function " << aggregation_function << std::endl;
@@ -217,8 +227,6 @@ int main(int argc, char* argv[]) {
   } else {
     only = "";
   }
-
-  const DataType type = util::resolve_type(filename);
 
   if (lookups.find("lookups") == std::string::npos) {
     cerr << "Warning: lookups file seems misnamed. Did you specify the right "

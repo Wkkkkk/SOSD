@@ -2,6 +2,7 @@
 
 #include <map>
 
+#include "../utils/tracking_allocator.h"
 #include "base.h"
 
 template <class KeyType, typename BinOpFunc>
@@ -12,7 +13,13 @@ class RBTree : public UpdatableCompetitor {
   typedef typename BinOpFunc::Out outT;
 
   RBTree(BinOpFunc func)
-      : func_(func) {}
+      : btree_(TrackingAllocator<std::pair<KeyType, uint64_t>>(
+          total_allocation_size))
+      , func_(func) {}
+
+  ~RBTree() {
+    std::cout << "~RBTree: " << btree_.size() << std::endl;
+  }
 
   void insert(const KeyType& key, const uint64_t& value) {
     btree_.insert(std::pair(key, value));
@@ -42,13 +49,13 @@ class RBTree : public UpdatableCompetitor {
   KeyType youngest() const {
     if(btree_.empty()) return KeyType();
 
-    return btree_.end()->first;
+    return btree_.rbegin()->first;
   }
 
   std::string name() const { return "RBTree"; }
 
   std::size_t size() const {
-    return btree_.size();
+    return total_allocation_size;
   }
 
   std::size_t data_size() const { return data_size_; }
@@ -58,7 +65,9 @@ class RBTree : public UpdatableCompetitor {
   std::string op_func() const { return func_.name(); }
 
  private:
+  uint64_t total_allocation_size = 0;
   uint64_t data_size_ = 0;
-  std::map<KeyType, uint64_t> btree_;
+  std::map<KeyType, uint64_t, std::less<KeyType>,
+           TrackingAllocator<std::pair<KeyType, uint64_t>>> btree_;
   BinOpFunc func_;
 };

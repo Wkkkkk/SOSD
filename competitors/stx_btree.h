@@ -86,7 +86,7 @@ class STXBTree : public UpdatableCompetitor {
     return btree_.end()->first;
   }
 
-  std::string name() const { return "BTree"; }
+  std::string name() const { return "STX BTree"; }
 
   std::size_t size() const {
     return btree_.get_allocator().total_allocation_size + sizeof(*this);

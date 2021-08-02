@@ -62,8 +62,8 @@ struct Experiment {
   std::vector<uint64_t>& latencies;
 
   // aggregate function
-  std::variant<Sum<uint64_t>,
-      Max<uint64_t>> func;
+  std::variant<Sum<uint64_t>, Sum<uint32_t>,
+      Max<uint64_t>, Max<uint32_t>> func;
 
   // test for window sharing
   size_t window_size_big;
@@ -546,7 +546,7 @@ class Benchmark {
     while(index.data_size() != 0) { index.evict(); }
 
     for (int i = 0; i < exp.window_size && i < lookups_.size(); ++i) {
-      const uint64_t lookup_key = lookups_[i].key;
+      const auto lookup_key = lookups_[i].key;
       index.insert(lookup_key, 1 + (i % 101));
     }
 
@@ -559,7 +559,7 @@ class Benchmark {
         _mm_mfence();
       }
 
-      const uint64_t lookup_key = lookups_[i].key;
+      const auto lookup_key = lookups_[i].key;
 
       if constexpr (record) {
         individual_ns_sum_[0] += util::timing([&] {
