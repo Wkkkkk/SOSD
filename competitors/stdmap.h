@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <bitset>
 
 #include "../utils/tracking_allocator.h"
 #include "base.h"
@@ -17,13 +18,9 @@ class RBTree : public UpdatableCompetitor {
           total_allocation_size))
       , func_(func) {}
 
-  ~RBTree() {
-    std::cout << "~RBTree: " << btree_.size() << std::endl;
-  }
-
   void insert(const KeyType& key, const uint64_t& value) {
-    btree_.insert(std::pair(key, value));
-    data_size_ += 1;
+    auto [it, inserted] = btree_.insert_or_assign(key, value);
+    if (inserted) data_size_ += 1;
   }
 
   void evict() {
@@ -58,7 +55,7 @@ class RBTree : public UpdatableCompetitor {
     return total_allocation_size;
   }
 
-  std::size_t data_size() const { return data_size_; }
+  std::size_t data_size() const { return btree_.size(); }
 
   int variant() const { return 1; }
 

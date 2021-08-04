@@ -193,7 +193,6 @@ int main(int argc, char* argv[]) {
   const std::size_t window_size = result["ws"].as<size_t>();
   const size_t iterations = result["it"].as<size_t>();
   const size_t disorder = result["di"].as<size_t>();
-  const size_t duration = result["duration"].as<size_t>();
   const bool record = result.count("record") || std::getenv("RECORD");
   std::string only;
   const DataType type = util::resolve_type(filename);
@@ -215,7 +214,10 @@ int main(int argc, char* argv[]) {
     }
   }
   exp.do_data_test = dtest_mode;
-//  exp.window_duration = duration;
+  if (result.count("duration")) {
+    const auto duration = result["duration"].as<size_t>();
+    exp.window_duration = duration;
+  }
   std::cout << "window size " << exp.window_size << ", iterations " << exp.iterations
             << ", ooo_distance " << exp.ooo_distance
             << ", aggregation function " << aggregation_function << std::endl;

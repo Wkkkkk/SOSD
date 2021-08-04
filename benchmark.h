@@ -71,14 +71,16 @@ struct Experiment {
 
   // test for real data
   bool do_data_test = false;
-  uint64_t window_duration; // in nanoseconds (10-9s)
+  uint64_t window_duration; // in nanoseconds (10e-9s)
 
   Experiment(size_t w, uint64_t i, bool l, std::vector<uint64_t>& ls):
-      window_size(w), iterations(i), ooo_distance(0), record(l), latencies(ls)
+      window_size(w), iterations(i), ooo_distance(0), record(l), latencies(ls),
+      query_mode(false), window_duration(0)
   {}
 
   Experiment(size_t w, uint64_t i, uint64_t d, bool l, std::vector<uint64_t>& ls):
-      window_size(w), iterations(i), ooo_distance(d), record(l), latencies(ls)
+      window_size(w), iterations(i), ooo_distance(d), record(l), latencies(ls),
+      query_mode(false), window_duration(0)
   {}
 };
 
@@ -550,7 +552,7 @@ class Benchmark {
       index.insert(lookup_key, 1 + (i % 101));
     }
 
-    for (int i = 0; i < lookups_.size() ; ++i) {
+    for (int i = exp.window_size; i < lookups_.size() ; ++i) {
       if constexpr (clear_cache) {
         // Make sure that all cache lines from large buffer are loaded
         for (uint64_t& iter : memory_) {
@@ -563,11 +565,8 @@ class Benchmark {
 
       if constexpr (record) {
         individual_ns_sum_[0] += util::timing([&] {
-          if(index.data_size() >= exp.window_size)
             index.evict();
         });
-        //@warning:  ALEX may crash here!
-        //@warning:  FiBA may fail to insert element here!
         individual_ns_sum_[1] += util::timing([&] {
           index.insert(lookup_key, 1 + (i % 101));
         });
