@@ -62,8 +62,16 @@ struct Experiment {
   std::vector<uint64_t>& latencies;
 
   // aggregate function
-  std::variant<Sum<uint64_t>, Sum<uint32_t>,
-      Max<uint64_t>, Max<uint32_t>> func;
+  std::variant<
+      Sum<uint64_t>, Sum<uint32_t>,
+      Max<uint64_t>, Max<uint32_t>,
+      Mean<uint64_t>, Mean<uint32_t>,
+      GeometricMean<uint64_t>, GeometricMean<uint32_t>,
+      SampleStdDev<uint64_t>, SampleStdDev<uint32_t>,
+      BloomFilter<uint64_t>, BloomFilter<uint32_t>,
+      Collect<uint64_t>, Collect<uint32_t>,
+      MinCount<uint64_t>, MinCount<uint32_t>,
+      BusyLoop<uint64_t>, BusyLoop<uint32_t>> func;
 
   // test for window sharing
   size_t window_size_big;
@@ -465,7 +473,11 @@ class Benchmark {
 
       uint64_t ms = util::timing([&] {
         if(exp.do_data_test) {
-          DoDataDrivenQueryCoreLoop<Index, fence, clear_cache, record>(
+          if(exp.window_duration > 0)
+            DoSessionBasedDataDrivenQueryCoreLoop<Index, fence, clear_cache, record>(
+                index, exp, run_failed);
+          else
+            DoDataDrivenQueryCoreLoop<Index, fence, clear_cache, record>(
               index, exp, run_failed);
         } else {
           DoQueryCoreLoop<Index, fence, clear_cache, record>(
@@ -539,7 +551,7 @@ class Benchmark {
     }
 
     std::cout << index.name() << " " << index.variant() << " "
-              << index.data_size() << " force_side_effect: " << force_side_effect << std::endl;
+              << index.data_size() << std::endl;
   }
 
   template <class Index, bool fence, bool clear_cache, bool record>
@@ -592,11 +604,80 @@ class Benchmark {
       }
     }
 
-    {
-      bitset<64> qword = force_side_effect;
-      std::cout << index.name() << " " << index.variant() << " "
-                << index.data_size() << " force_side_effect: " << qword.to_ullong() << std::endl;
+    std::cout << index.name() << " " << index.variant() << " "
+              << index.data_size() << std::endl;
+  }
+
+  template <class Index, bool fence, bool clear_cache, bool record>
+  void DoSessionBasedDataDrivenQueryCoreLoop(Index& index, Experiment exp, bool& run_failed) {
+    std::cout << "Do session based window aggregation " << index.name() << " " << exp.window_duration << std::endl;
+    typename Index::outT force_side_effect = typename Index::outT();
+    while(index.data_size() != 0) { index.evict(); }
+
+    for (int i = 0; i < lookups_.size() ; ++i) {
+      if constexpr (clear_cache) {
+        // Make sure that all cache lines from large buffer are loaded
+        for (uint64_t& iter : memory_) {
+          random_sum_ += iter;
+        }
+        _mm_mfence();
+      }
+
+      const auto lookup_key = lookups_[i].key;
+      if constexpr (record) {
+        individual_ns_sum_[1] += util::timing([&] {
+          index.insert(lookup_key, 1 + (i % 101));
+        });
+
+        const auto youngest = index.youngest();
+        while (exp.window_duration < (youngest - index.oldest())) {
+          individual_ns_sum_[0] += util::timing([&] {
+            index.evict();
+          });
+        }
+
+        individual_ns_sum_[2] += util::timing([&] {
+          silly_combine(force_side_effect, index.query());
+        });
+
+        iteration_num_++;
+      } else {
+        {
+          bitset<64> qword = lookup_key;
+          std::cout << "insert: " << qword.to_ullong() << std::endl;
+        }
+        index.insert(lookup_key, 1 + (i % 101));
+
+        const auto youngest = index.youngest();
+        {
+          bitset<64> qword = index.oldest();
+          std::cout << "oldest: " << qword.to_ullong() << std::endl;
+        }
+        while (exp.window_duration < (youngest - index.oldest())) {
+          {
+            bitset<64> qword = index.oldest();
+            std::cout << "evict: " << qword.to_ullong() << std::endl;
+          }
+          index.evict();
+        }
+
+        silly_combine(force_side_effect, index.query());
+      }
+
+      if constexpr (fence) __sync_synchronize();
     }
+
+    if constexpr (record) {
+      uint64_t ns_sum = 0;
+      for(unsigned long j : individual_ns_sum_) { ns_sum += j; }
+      for(unsigned long j : individual_ns_sum_) {
+        exp.latencies.push_back(100 * j / ns_sum);
+      }
+    }
+
+    std::cout << index.name() << " " << index.variant() << " "
+              << index.data_size() << std::endl;
+
   }
 
   template <class Index>

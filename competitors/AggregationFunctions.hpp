@@ -201,6 +201,8 @@ public:
         ++accum.n;
     }
 
+  std::string name() const { return "geometric_mean"; }
+
     static const Partial identity;
 };
 
@@ -259,6 +261,8 @@ public:
         ++accum.n;
     }
 
+  std::string name() const { return "sample_std_dev"; }
+
     static const Partial identity;
 };
 
@@ -307,6 +311,8 @@ public:
         }
     }
 
+  std::string name() const { return "arg_max"; }
+
     static const Partial identity;
 
 private:
@@ -352,6 +358,8 @@ public:
   void recalc_combine(Partial& accum, const In& b) const {
     accum |= b;
   }
+
+  std::string name() const { return "bloom_filter"; }
 
   static const Partial identity;
 
@@ -436,6 +444,8 @@ public:
         accum.ls.push_back(b);
     }
 
+    std::string name() const { return "collect"; }
+
     static const Partial identity;
 };
 
@@ -496,6 +506,8 @@ public:
         }
     }
 
+    std::string name() const { return "min_count"; }
+
     static const Partial identity;
 };
 
@@ -508,7 +520,7 @@ public:
     typedef _In In;
     typedef _Partial Partial;
     typedef In Out;
-		const size_t to_loop = 100;
+    const size_t to_loop = 100;
 
     Out lower(const Partial& c) const {
         return static_cast<Out>(c);
@@ -518,7 +530,7 @@ public:
         return static_cast<Partial>(v);
     }
 
-		inline static double busy_looper(size_t num_loop) {
+    inline static double busy_looper(size_t num_loop) {
       double dummy = 1.0;
 			for (size_t i=0;i<num_loop;++i) {
 				dummy += 1.0/((double)((1+i)%1000000));
@@ -544,6 +556,8 @@ public:
   
         accum += b + (dummy_int)%16;
     }
+
+    std::string name() const { return "busy_loop"; }
 
     static const Partial identity;
 };
@@ -608,6 +622,8 @@ public:
             accum.max = b;
         }
     }
+
+    std::string name() const { return "relative_variation"; }
 
     static const Partial identity;
 };

@@ -204,12 +204,25 @@ int main(int argc, char* argv[]) {
     case DataType::UINT32: {
       if (aggregation_function == "sum") exp.func = Sum<uint32_t>();
       else if (aggregation_function == "max") exp.func = Max<uint32_t>();
+      else if (aggregation_function == "mean") exp.func = Mean<uint32_t>();
+      else if (aggregation_function == "geometric_mean") exp.func = GeometricMean<uint32_t>();
+      else if (aggregation_function == "sample_std_dev") exp.func = SampleStdDev<uint32_t>();
+      else if (aggregation_function == "bloom_filter") exp.func = BloomFilter<uint32_t>();
+      else if (aggregation_function == "collect") exp.func = Collect<uint32_t>();
+      else if (aggregation_function == "min_count") exp.func = MinCount<uint32_t>();
+//      else if (aggregation_function == "busy_loop") exp.func = BusyLoop<uint32_t>();
       break;
     }
     case DataType::UINT64: {
       if (aggregation_function == "sum") exp.func = Sum<uint64_t>();
       else if (aggregation_function == "max") exp.func = Max<uint64_t>();
-
+      else if (aggregation_function == "mean") exp.func = Mean<uint64_t>();
+      else if (aggregation_function == "geometric_mean") exp.func = GeometricMean<uint64_t>();
+      else if (aggregation_function == "sample_std_dev") exp.func = SampleStdDev<uint64_t>();
+      else if (aggregation_function == "bloom_filter") exp.func = BloomFilter<uint64_t>();
+      else if (aggregation_function == "collect") exp.func = Collect<uint64_t>();
+      else if (aggregation_function == "min_count") exp.func = MinCount<uint64_t>();
+//      else if (aggregation_function == "busy_loop") exp.func = BusyLoop<uint64_t>();
       break;
     }
   }

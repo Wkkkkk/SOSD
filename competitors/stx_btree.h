@@ -69,7 +69,7 @@ class STXBTree : public UpdatableCompetitor {
     aggT result = BinOpFunc::identity;
     for (auto const& [key, val] : btree_)
     {
-      result = func_.combine(result, val);
+      result = func_.combine(result, func_.lift(val));
     }
     return func_.lower(result);
   }

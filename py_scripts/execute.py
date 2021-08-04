@@ -13,7 +13,7 @@ NUM_REPEATS = 1
 NUM_ITERATIONS = 100000
 ALL_WINDOW_SIZES = [100, 200, 500, 1000, 2000, 5000]
 ALL_DISORDER = [0, 10, 20, 50, 100, 200, 500]
-ALL_AGGREGATION_FUNCTION = ["sum", "max"]
+ALL_AGGREGATION_FUNCTION = ["sum", "max", "geometric_mean", "sample_std_dev", "bloom_filter", "collect", "min_count"]
 ALL_DATASETS = []
 
 
