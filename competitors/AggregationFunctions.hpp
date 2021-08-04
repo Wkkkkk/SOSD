@@ -201,7 +201,7 @@ public:
         ++accum.n;
     }
 
-  std::string name() const { return "geometric_mean"; }
+  std::string name() const { return "geometric-mean"; }
 
     static const Partial identity;
 };
@@ -261,7 +261,7 @@ public:
         ++accum.n;
     }
 
-  std::string name() const { return "sample_std_dev"; }
+  std::string name() const { return "sample-std-dev"; }
 
     static const Partial identity;
 };
@@ -311,7 +311,7 @@ public:
         }
     }
 
-  std::string name() const { return "arg_max"; }
+  std::string name() const { return "arg-max"; }
 
     static const Partial identity;
 
@@ -359,7 +359,7 @@ public:
     accum |= b;
   }
 
-  std::string name() const { return "bloom_filter"; }
+  std::string name() const { return "bloom-filter"; }
 
   static const Partial identity;
 
@@ -506,7 +506,7 @@ public:
         }
     }
 
-    std::string name() const { return "min_count"; }
+    std::string name() const { return "min-count"; }
 
     static const Partial identity;
 };
@@ -557,7 +557,7 @@ public:
         accum += b + (dummy_int)%16;
     }
 
-    std::string name() const { return "busy_loop"; }
+    std::string name() const { return "busy-loop"; }
 
     static const Partial identity;
 };
@@ -623,7 +623,7 @@ public:
         }
     }
 
-    std::string name() const { return "relative_variation"; }
+    std::string name() const { return "relative-variation"; }
 
     static const Partial identity;
 };

@@ -13,7 +13,7 @@ NUM_REPEATS = 1
 NUM_ITERATIONS = 100000
 ALL_WINDOW_SIZES = [100, 200, 500, 1000, 2000, 5000]
 ALL_DISORDER = [0, 10, 20, 50, 100, 200, 500]
-ALL_AGGREGATION_FUNCTION = ["sum", "max", "geometric_mean", "sample_std_dev", "bloom_filter", "collect", "min_count"]
+ALL_AGGREGATION_FUNCTION = ["sum", "max", "geometric-mean", "sample-std-dev", "bloom-filter", "min-count"]
 ALL_DATASETS = []
 
 
@@ -86,8 +86,13 @@ def print_result_for_different_aggregation_functions(dataframe, data_sets, itera
                    (dataframe['window_size'] == window_size) & (dataframe['disorder'] == disorder)]
 
     op_funcs = df.groupby(['op_func']).groups.keys()
-    fig, axs = plt.subplots(1, len(op_funcs), figsize=(12, 4))
+    COLUMN_PER_ROW = 4
+    ROW_NUM = len(op_funcs) // COLUMN_PER_ROW + 1
+    VOID_PLOT_NUM = ROW_NUM * COLUMN_PER_ROW - len(op_funcs)
+    fig, axs = plt.subplots(ROW_NUM, COLUMN_PER_ROW, figsize=(15, 8))
     for i, op in enumerate(op_funcs):
+        cur_row = i // COLUMN_PER_ROW
+        cur_column = i % COLUMN_PER_ROW
         grouped_result = df.groupby(['op_func']).get_group(op)
         name = grouped_result['name']
         index = np.arange(len(name))
@@ -96,17 +101,19 @@ def print_result_for_different_aggregation_functions(dataframe, data_sets, itera
         insert_ns = grouped_result['insert_ns']
         query_ns = grouped_result['query_ns']
         # other_ns = total_ns - evict_ns - insert_ns - query_ns
-        # axs[i].bar(index, other_ns, width=0.4, label='other')
-        axs[i].bar(index, evict_ns, width=0.4, label='evict')
-        axs[i].bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert')
-        axs[i].bar(index, query_ns, width=0.4, bottom=evict_ns + insert_ns, label='query')
-        axs[i].set_xticks(index)
-        axs[i].set_xticklabels(name)
-        axs[i].set_xlabel(op)
-        axs[i].set_ylabel("time(ns)")
-        axs[i].legend(loc='upper right', shadow=True)
-        # axs[i].set_title('Performance for different aggregation functions')
+        # axs[cur_row][cur_column].bar(index, other_ns, width=0.4, label='other')
+        axs[cur_row][cur_column].bar(index, evict_ns, width=0.4, label='evict')
+        axs[cur_row][cur_column].bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert')
+        axs[cur_row][cur_column].bar(index, query_ns, width=0.4, bottom=evict_ns + insert_ns, label='query')
+        axs[cur_row][cur_column].set_xticks(index)
+        axs[cur_row][cur_column].set_xticklabels(name)
+        axs[cur_row][cur_column].set_xlabel(op)
+        axs[cur_row][cur_column].set_ylabel("time(ns)")
+        axs[cur_row][cur_column].legend(loc='upper right', shadow=True)
+        # axs[cur_row][cur_column].set_title('Performance for different aggregation functions')
 
+    for i in range(VOID_PLOT_NUM):
+        plt.delaxes()
     plt.savefig(RESULT_FIGURE_DIR + 'aggregation.png', dpi=1000)
     if show_result:
         plt.show()
@@ -367,20 +374,20 @@ def run_benchmark_on_real_world_data():
 def main():
     print("Hello World!")
     init()
-    run_benchmark_with_different_aggregation_function()
-    run_benchmark_with_different_window_size()
-    run_benchmark_with_different_disorder()
-    run_benchmark_on_real_world_data()
+    # run_benchmark_with_different_aggregation_function()
+    # run_benchmark_with_different_window_size()
+    # run_benchmark_with_different_disorder()
+    # run_benchmark_on_real_world_data()
 
     print("We have all results, let's draw them into plots")
     show_result = False
     dataframe = read_all_results()
     print_result_for_different_aggregation_functions(dataframe, ["synthetic"], 100000, 1000, 50, show_result)
-    print_result_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
-    print_model_size_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
-    print_result_for_different_disorder(dataframe, ["synthetic"], 100000, 1000, "sum", show_result)
-    print_detailed_result_for_uint64_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
-    print_summary_for_different_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
+    # print_result_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
+    # print_model_size_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
+    # print_result_for_different_disorder(dataframe, ["synthetic"], 100000, 1000, "sum", show_result)
+    # print_detailed_result_for_uint64_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
+    # print_summary_for_different_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
     print("Results are saved")
 
 
