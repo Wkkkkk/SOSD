@@ -192,11 +192,12 @@ int main(int argc, char* argv[]) {
   const std::string aggregation_function = result["af"].as<std::string>();
   const std::size_t window_size = result["ws"].as<size_t>();
   const size_t iterations = result["it"].as<size_t>();
-  const size_t disorder = result["di"].as<size_t>();
+  const size_t disorder_per = result["di"].as<size_t>();
   const bool record = result.count("record") || std::getenv("RECORD");
   std::string only;
   const DataType type = util::resolve_type(filename);
 
+  const size_t disorder = window_size * disorder_per / 100;
   std::vector<uint64_t> latencies;
   sosd::Experiment exp(window_size, iterations, disorder, record, latencies);
   exp.query_mode = query_mode;

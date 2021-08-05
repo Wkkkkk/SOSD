@@ -1,4 +1,5 @@
 import os
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,10 +12,15 @@ COLUMNS = dict.fromkeys(['data_set', 'iterations', 'window_size', 'disorder', 'n
                          'evict_ns', 'insert_ns', 'query_ns', 'model_size', 'build_time', 'op_func'])
 NUM_REPEATS = 1
 NUM_ITERATIONS = 100000
-ALL_WINDOW_SIZES = [100, 200, 500, 1000, 2000, 5000]
-ALL_DISORDER = [0, 10, 20, 50, 100, 200, 500]
+ALL_WINDOW_SIZES = [100, 200, 500, 1000, 2000, 5000, 10000]
+ALL_DISORDER = [0, 10, 20, 50, 80, 100]  # (0~100) in percentage
+# ALL_WINDOW_SIZES = range(0, 10001, 1000)  # (0~10000)
+# ALL_DISORDER = range(0, 101, 5)  # (0~100) in percentage
 ALL_AGGREGATION_FUNCTION = ["sum", "max", "geometric-mean", "sample-std-dev", "bloom-filter", "min-count"]
 ALL_DATASETS = []
+DEFAULT_WINDOW_SIZE = ALL_WINDOW_SIZES[len(ALL_WINDOW_SIZES) // 2]
+DEFAULT_DISORDER = ALL_DISORDER[0]
+DEFAULT_AGGREGATION = ALL_AGGREGATION_FUNCTION[0]
 
 
 def init():
@@ -89,7 +95,7 @@ def print_result_for_different_aggregation_functions(dataframe, data_sets, itera
     COLUMN_PER_ROW = 4
     ROW_NUM = len(op_funcs) // COLUMN_PER_ROW + 1
     VOID_PLOT_NUM = ROW_NUM * COLUMN_PER_ROW - len(op_funcs)
-    fig, axs = plt.subplots(ROW_NUM, COLUMN_PER_ROW, figsize=(15, 8))
+    fig, axs = plt.subplots(ROW_NUM, COLUMN_PER_ROW, figsize=(16, 6))
     for i, op in enumerate(op_funcs):
         cur_row = i // COLUMN_PER_ROW
         cur_column = i % COLUMN_PER_ROW
@@ -102,14 +108,14 @@ def print_result_for_different_aggregation_functions(dataframe, data_sets, itera
         query_ns = grouped_result['query_ns']
         # other_ns = total_ns - evict_ns - insert_ns - query_ns
         # axs[cur_row][cur_column].bar(index, other_ns, width=0.4, label='other')
-        axs[cur_row][cur_column].bar(index, evict_ns, width=0.4, label='evict')
-        axs[cur_row][cur_column].bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert')
-        axs[cur_row][cur_column].bar(index, query_ns, width=0.4, bottom=evict_ns + insert_ns, label='query')
+        axs[cur_row][cur_column].bar(index, evict_ns, width=0.4, label='evict', fc='steelblue')
+        axs[cur_row][cur_column].bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert', fc='darkorange')
+        # axs[cur_row][cur_column].bar(index, query_ns, width=0.4, bottom=evict_ns + insert_ns, label='query')
         axs[cur_row][cur_column].set_xticks(index)
         axs[cur_row][cur_column].set_xticklabels(name)
         axs[cur_row][cur_column].set_xlabel(op)
         axs[cur_row][cur_column].set_ylabel("time(ns)")
-        axs[cur_row][cur_column].legend(loc='upper right', shadow=True)
+        axs[cur_row][cur_column].legend(loc='best', shadow=True)
         # axs[cur_row][cur_column].set_title('Performance for different aggregation functions')
 
     for i in range(VOID_PLOT_NUM):
@@ -129,7 +135,7 @@ def print_result_for_different_window_size(dataframe, data_sets, iterations, dis
     df = df.sort_values(by=['window_size'])
 
     names = df.groupby(['name']).groups.keys()
-    fig, axs = plt.subplots(1, len(names), figsize=(12, 4))
+    fig, axs = plt.subplots(1, len(names), figsize=(22, 4))
     for i, name in enumerate(names):
         grouped_result = df.groupby(['name']).get_group(name)
         window_size = grouped_result['window_size']
@@ -187,7 +193,7 @@ def print_result_for_different_disorder(dataframe, data_sets, iterations, window
     df = df.sort_values(by=['disorder'])
 
     names = df.groupby(['name']).groups.keys()
-    fig, axs = plt.subplots(1, len(names), figsize=(12, 4))
+    fig, axs = plt.subplots(1, len(names), figsize=(20, 4))
     for i, name in enumerate(names):
         grouped_result = df.groupby(['name']).get_group(name)
         disorder = grouped_result['disorder']
@@ -218,35 +224,22 @@ def print_detailed_result_for_uint64_datasets(dataframe, iterations, window_size
     uint64_data_set_names = [name for name in all_data_set_names if str(name).endswith("200M_uint64")]
     df = df[df['data_set'].isin(uint64_data_set_names)]
 
-    data_sets = df.groupby(['data_set']).groups.keys()
-    COLUMN_PER_ROW = 4
-    ROW_NUM = len(data_sets) // COLUMN_PER_ROW + 1
-    VOID_PLOT_NUM = ROW_NUM * COLUMN_PER_ROW - len(data_sets)
-    fig, axs = plt.subplots(ROW_NUM, COLUMN_PER_ROW, figsize=(15, 8))
-    for i, data_set in enumerate(data_sets):
-        cur_row = i // COLUMN_PER_ROW
-        cur_column = i % COLUMN_PER_ROW
-        grouped_result = df.groupby(['data_set']).get_group(data_set)
-        name = grouped_result['name']
-        index = np.arange(len(name))
-        total_ns = grouped_result['total_ns']
-        evict_ns = grouped_result['evict_ns']
-        insert_ns = grouped_result['insert_ns']
-        query_ns = grouped_result['query_ns']
-        # other_ns = total_ns - evict_ns - insert_ns - query_ns
-        # axs[cur_row][cur_column].bar(index, other_ns, width=0.4, label='other')
-        axs[cur_row][cur_column].bar(index, evict_ns, width=0.4, label='evict')
-        axs[cur_row][cur_column].bar(index, insert_ns, width=0.4, bottom=evict_ns, label='insert')
-        axs[cur_row][cur_column].bar(index, query_ns, width=0.4, bottom=evict_ns + insert_ns, label='query')
-        axs[cur_row][cur_column].set_xticks(index)
-        axs[cur_row][cur_column].set_xticklabels(name)
-        axs[cur_row][cur_column].set_xlabel(data_set)
-        axs[cur_row][cur_column].set_ylabel("time(ns)")
-        axs[cur_row][cur_column].legend(loc='upper right', shadow=True)
-        # axs[cur_row][cur_column].set_title('Performance for different aggregation functions')
+    data_sets = list(df.groupby(['data_set']).groups.keys())
+    names = list(df.groupby(['name']).groups.keys())
+    index = np.arange(len(data_sets))
+    total_width, n = 0.8, len(names)
+    width = total_width / n
 
-    for i in range(VOID_PLOT_NUM):
-        plt.delaxes()
+    for i, name in enumerate(names):
+        index_i = [x + width * i for x in index]
+        grouped_result = df.groupby(['name']).get_group(name)
+        total_ns = grouped_result['total_ns']
+        plt.bar(index_i, total_ns, width=width, tick_label=data_sets, label=name)
+
+    plt.xticks(rotation=-15)
+    plt.xlabel("Datasets")
+    plt.ylabel("time(ns)")
+    plt.legend(loc='best', shadow=True)
     plt.savefig(RESULT_FIGURE_DIR + 'dataset.png', dpi=1000)
     if show_result:
         plt.show()
@@ -320,7 +313,10 @@ def run_benchmark(params):
     if data_test:
         param_str += " --dtest true"
     print("Executing workload ", BENCHMARK, param_str)
-    subprocess.run([BENCHMARK, param_str])
+    stdoutdata = subprocess.getoutput(BENCHMARK+param_str)
+    with open(output_file_name, 'w') as the_file:
+        the_file.write(stdoutdata)
+    # subprocess.run([BENCHMARK, param_str])
 
 
 def run_benchmark_with_different_aggregation_function():
@@ -331,8 +327,8 @@ def run_benchmark_with_different_aggregation_function():
     print("\nrun_benchmark_with_different_aggregation_function")
     for fn in ALL_AGGREGATION_FUNCTION:
         run_benchmark([NUM_REPEATS, "wiki_ts_200M_uint64",  # <-this parameter doesn't matter
-                       NUM_ITERATIONS, ALL_WINDOW_SIZES[len(ALL_WINDOW_SIZES) // 2],  # <-choose a median value
-                       ALL_DISORDER[len(ALL_DISORDER) // 2], fn, False])  # <- we use synthetic data to do test
+                       NUM_ITERATIONS, DEFAULT_WINDOW_SIZE,
+                       DEFAULT_DISORDER, fn, False])  # <- we use synthetic data to do test
 
 
 def run_benchmark_with_different_window_size():
@@ -343,8 +339,8 @@ def run_benchmark_with_different_window_size():
     print("\nrun_benchmark_with_different_window_size")
     for window_size in ALL_WINDOW_SIZES:
         run_benchmark([NUM_REPEATS, "wiki_ts_200M_uint64",  # <-this parameter doesn't matter
-                       NUM_ITERATIONS, window_size,  ALL_DISORDER[len(ALL_DISORDER) // 2],
-                       "sum", False])  # <- we use synthetic data to do test
+                       NUM_ITERATIONS, window_size,  DEFAULT_DISORDER,
+                       DEFAULT_AGGREGATION, False])  # <- we use synthetic data to do test
 
 
 def run_benchmark_with_different_disorder():
@@ -355,8 +351,8 @@ def run_benchmark_with_different_disorder():
     print("\nrun_benchmark_with_different_disorder")
     for disorder in ALL_DISORDER:
         run_benchmark([NUM_REPEATS, "wiki_ts_200M_uint64",  # <-this parameter doesn't matter
-                       NUM_ITERATIONS, ALL_WINDOW_SIZES[len(ALL_WINDOW_SIZES) // 2],  # <-choose a median value
-                       disorder, "sum", False])  # <- we use synthetic data to do test
+                       NUM_ITERATIONS, DEFAULT_WINDOW_SIZE,
+                       disorder, DEFAULT_AGGREGATION, False])  # <- we use synthetic data to do test
 
 
 def run_benchmark_on_real_world_data():
@@ -367,8 +363,8 @@ def run_benchmark_on_real_world_data():
     print("\nrun_benchmark_on_real_world_data")
     for data_set in ALL_DATASETS:
         run_benchmark([NUM_REPEATS, data_set,
-                       NUM_ITERATIONS, ALL_WINDOW_SIZES[len(ALL_WINDOW_SIZES) // 2],  # <-choose a median value
-                       ALL_DISORDER[len(ALL_DISORDER) // 2], "sum", True])
+                       NUM_ITERATIONS, DEFAULT_WINDOW_SIZE,
+                       DEFAULT_DISORDER, DEFAULT_AGGREGATION, True])
 
 
 def main():
@@ -382,12 +378,12 @@ def main():
     print("We have all results, let's draw them into plots")
     show_result = False
     dataframe = read_all_results()
-    print_result_for_different_aggregation_functions(dataframe, ["synthetic"], 100000, 1000, 50, show_result)
-    # print_result_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
-    # print_model_size_for_different_window_size(dataframe, ["synthetic"], 100000, 50, "sum", show_result)
-    # print_result_for_different_disorder(dataframe, ["synthetic"], 100000, 1000, "sum", show_result)
-    # print_detailed_result_for_uint64_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
-    # print_summary_for_different_datasets(dataframe, 100000, 1000, 50, "sum", show_result)
+    # print_result_for_different_aggregation_functions(dataframe, ["synthetic"], NUM_ITERATIONS,  DEFAULT_WINDOW_SIZE, DEFAULT_DISORDER, show_result)
+    print_result_for_different_window_size(dataframe, ["synthetic"], NUM_ITERATIONS, DEFAULT_DISORDER, DEFAULT_AGGREGATION, show_result)
+    # print_model_size_for_different_window_size(dataframe, ["synthetic"], NUM_ITERATIONS, DEFAULT_DISORDER, DEFAULT_AGGREGATION, show_result)
+    # print_result_for_different_disorder(dataframe, ["synthetic"], NUM_ITERATIONS, DEFAULT_WINDOW_SIZE, DEFAULT_AGGREGATION, show_result)
+    # print_detailed_result_for_uint64_datasets(dataframe, NUM_ITERATIONS, DEFAULT_WINDOW_SIZE, DEFAULT_DISORDER, DEFAULT_AGGREGATION, show_result)
+    # print_summary_for_different_datasets(dataframe, NUM_ITERATIONS, DEFAULT_WINDOW_SIZE, DEFAULT_DISORDER, DEFAULT_AGGREGATION, show_result)
     print("Results are saved")
 
 
