@@ -20,8 +20,7 @@ function do_data_benchmark() {
         echo "Already have results for $1"
     else
         echo "Executing workload $1"
-        $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M --query true --it $num_iterations --ws $window_size \
-          --di $disorder --af $fn --dtest true --record true | tee $RESULTS
+        $BENCHMARK -r $2 ./data/$1 ./data/$1_equality_lookups_1M | tee $RESULTS
     fi
 }
 
@@ -58,12 +57,6 @@ function do_synthetic_benchmark_perf() {
 mkdir -p ./results
 
 synthetic_data=wiki_ts_200M_uint64;
-# aggregation functions
-for fn in sum max mean geometric-mean sample-std-dev bloom-filter min-count #collect
-do
-  do_synthetic_benchmark $synthetic_data $num_repeats 100000 1000 50 $fn
-done
-exit
 
 #let Hour=60*60*1000000000
 #let Minite=1000*1000
@@ -72,6 +65,7 @@ for dataset in $(cat scripts/datasets_under_test.txt);
 do
   do_data_benchmark $dataset $num_repeats 100000 1000 50 sum
 done
+exit
 
 # perf
 do_synthetic_benchmark_perf $synthetic_data $num_repeats 100000 1000 50 sum
@@ -88,4 +82,8 @@ do
   do_synthetic_benchmark $synthetic_data $num_repeats 100000 1000 $disorder sum
 done
 
-do_synthetic_benchmark $synthetic_data $num_repeats 100000 1000 50 sum true
+# aggregation functions
+for fn in sum max mean geometric-mean sample-std-dev bloom-filter min-count #collect
+do
+  do_synthetic_benchmark $synthetic_data $num_repeats 100000 1000 50 $fn
+done
